@@ -1,0 +1,2215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GlassAnt - Own Your Job Reviews</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --teal-50: #f0fdfa;
+      --teal-100: #ccfbf1;
+      --teal-200: #99f6e4;
+      --teal-300: #5eead4;
+      --teal-400: #2dd4bf;
+      --teal-500: #14b8a6;
+      --teal-600: #0d9488;
+      --teal-700: #0f766e;
+      --teal-800: #115e59;
+      --teal-900: #134e4a;
+      --slate-50: #f8fafc;
+      --slate-100: #f1f5f9;
+      --slate-200: #e2e8f0;
+      --slate-300: #cbd5e1;
+      --slate-400: #94a3b8;
+      --slate-500: #64748b;
+      --slate-600: #475569;
+      --slate-700: #334155;
+      --slate-800: #1e293b;
+      --slate-900: #0f172a;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: var(--slate-100); min-height: 100vh; }
+    input, select, textarea, button { font-family: inherit; }
+    
+    /* Buttons */
+    .btn { padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; font-size: 14px; }
+    .btn-primary { background: linear-gradient(135deg, var(--teal-600) 0%, var(--teal-500) 100%); color: #fff; box-shadow: 0 2px 4px rgba(13, 148, 136, 0.3); }
+    .btn-primary:hover { background: linear-gradient(135deg, var(--teal-700) 0%, var(--teal-600) 100%); transform: translateY(-1px); box-shadow: 0 4px 8px rgba(13, 148, 136, 0.4); }
+    .btn-primary:disabled { background: var(--slate-300); box-shadow: none; cursor: not-allowed; transform: none; }
+    .btn-secondary { background: #fff; color: var(--slate-700); border: 1px solid var(--slate-300); }
+    .btn-secondary:hover { background: var(--slate-50); border-color: var(--slate-400); }
+    .btn-danger { background: #dc2626; color: #fff; }
+    .btn-sm { padding: 6px 12px; font-size: 13px; }
+    .btn-xs { padding: 4px 8px; font-size: 12px; }
+    
+    /* Cards */
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06); }
+    
+    /* Inputs */
+    .input { width: 100%; padding: 10px 14px; border: 1px solid var(--slate-300); border-radius: 8px; font-size: 14px; transition: all 0.2s; }
+    .input:focus { outline: none; border-color: var(--teal-500); box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15); }
+    .label { display: block; font-size: 14px; font-weight: 500; color: var(--slate-700); margin-bottom: 6px; }
+    
+    /* Utilities */
+    .text-muted { color: var(--slate-500); }
+    .text-teal { color: var(--teal-600); }
+    .text-sm { font-size: 13px; }
+    .text-xs { font-size: 12px; }
+    .mb-2 { margin-bottom: 8px; }
+    .mb-3 { margin-bottom: 12px; }
+    .mb-4 { margin-bottom: 16px; }
+    .mb-6 { margin-bottom: 24px; }
+    .mt-2 { margin-top: 8px; }
+    .mt-4 { margin-top: 16px; }
+    .flex { display: flex; }
+    .gap-2 { gap: 8px; }
+    .gap-3 { gap: 12px; }
+    .gap-4 { gap: 16px; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .flex-wrap { flex-wrap: wrap; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    
+    /* Badges */
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .badge-teal { background: var(--teal-100); color: var(--teal-700); }
+    .badge-green { background: #dcfce7; color: #166534; }
+    .badge-yellow { background: #fef3c7; color: #92400e; }
+    .badge-gray { background: var(--slate-100); color: var(--slate-600); }
+    .badge-purple { background: #f3e8ff; color: #7c3aed; }
+    
+    /* Tables */
+    .table { width: 100%; border-collapse: collapse; }
+    .table th { text-align: left; padding: 12px 16px; background: var(--slate-50); font-size: 11px; font-weight: 700; color: var(--slate-500); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--slate-200); }
+    .table td { padding: 14px 16px; border-bottom: 1px solid var(--slate-100); font-size: 14px; }
+    .table tr:hover { background: var(--slate-50); }
+    
+    /* Navigation */
+    .nav { background: linear-gradient(135deg, var(--slate-900) 0%, var(--slate-800) 100%); padding: 0 24px; }
+    .nav-inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; height: 64px; }
+    .nav-links { display: flex; gap: 4px; }
+    .nav-link { padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: 500; color: var(--slate-400); cursor: pointer; border: none; background: none; transition: all 0.2s; }
+    .nav-link:hover { color: #fff; background: rgba(255,255,255,0.1); }
+    .nav-link.active { color: var(--teal-400); background: rgba(20, 184, 166, 0.15); }
+    
+    /* Layout */
+    .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+    .page-title { font-size: 24px; font-weight: 700; color: var(--slate-900); margin-bottom: 4px; }
+    .page-desc { font-size: 15px; color: var(--slate-500); margin-bottom: 24px; }
+    
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 100; }
+    .modal { background: #fff; border-radius: 16px; padding: 24px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
+    .modal-title { font-size: 18px; font-weight: 700; color: var(--slate-900); margin-bottom: 16px; }
+    
+    /* Rating buttons */
+    .rating-btn { width: 52px; height: 52px; border-radius: 10px; border: 2px solid var(--slate-200); background: #fff; font-size: 18px; font-weight: 700; cursor: pointer; transition: all 0.2s; color: var(--slate-600); }
+    .rating-btn:hover { border-color: var(--teal-400); color: var(--teal-600); }
+    .rating-btn.selected { background: var(--teal-600); color: #fff; border-color: var(--teal-600); }
+    
+    /* Progress bar */
+    .progress-bar { height: 8px; background: var(--slate-200); border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--teal-500), var(--teal-400)); transition: width 0.3s; }
+    
+    /* Stats */
+    .stat-card { text-align: center; padding: 24px; }
+    .stat-value { font-size: 36px; font-weight: 800; color: var(--slate-900); }
+    .stat-label { font-size: 13px; color: var(--slate-500); margin-top: 4px; font-weight: 500; }
+    
+    /* Skills */
+    .skill-tag { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: var(--slate-100); border-radius: 8px; font-size: 13px; font-weight: 500; margin: 4px; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; color: var(--slate-700); }
+    .skill-tag:hover { background: var(--slate-200); }
+    .skill-tag.selected { background: var(--teal-100); color: var(--teal-700); border-color: var(--teal-300); }
+    .skill-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border: 1px solid var(--slate-200); border-radius: 8px; margin-bottom: 8px; background: #fff; }
+    
+    /* Empty state */
+    .empty-state { text-align: center; padding: 48px 24px; color: var(--slate-500); }
+    
+    /* Category sections */
+    .category-section { margin-bottom: 24px; }
+    .category-header { font-size: 12px; font-weight: 700; color: var(--slate-500); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DATA PERSISTENCE
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const STORAGE_KEY = 'glassant_data';
+    
+    const defaultData = {
+      organization: null,
+      employees: [],
+      roles: [],
+      skills: [],
+      projects: [],
+      pulseQuestions: [], // { id, question, startDate, endDate, status: 'active'|'closed' }
+      reviewRequests: [],
+      reviews: [],
+    };
+    
+    const loadData = () => {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (!saved) return defaultData;
+        const parsed = { ...defaultData, ...JSON.parse(saved) };
+        // Clean up any duplicate skillIds in roles
+        if (parsed.roles) {
+          parsed.roles = parsed.roles.map(r => ({ ...r, skillIds: [...new Set(r.skillIds || [])] }));
+        }
+        return parsed;
+      } catch {
+        return defaultData;
+      }
+    };
+    
+    const saveData = (data) => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    };
+    
+    const generateId = () => Math.random().toString(36).substr(2, 9);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SKILL CATEGORIES
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const skillCategories = [
+      'Design',
+      'Engineering', 
+      'Art & Animation',
+      'Audio',
+      'Math & Analytics',
+      'Leadership',
+      'Communication',
+      'Business',
+      'Other'
+    ];
+
+    const starterSkills = [
+      { name: 'Game Design', category: 'Design' },
+      { name: 'Level Design', category: 'Design' },
+      { name: 'UX Design', category: 'Design' },
+      { name: 'Unity', category: 'Engineering' },
+      { name: 'HTML5/Canvas', category: 'Engineering' },
+      { name: 'Cocos2d', category: 'Engineering' },
+      { name: 'React', category: 'Engineering' },
+      { name: 'Node.js', category: 'Engineering' },
+      { name: 'Python', category: 'Engineering' },
+      { name: 'C#', category: 'Engineering' },
+      { name: 'TypeScript', category: 'Engineering' },
+      { name: '2D Art', category: 'Art & Animation' },
+      { name: '3D Modeling', category: 'Art & Animation' },
+      { name: 'Animation', category: 'Art & Animation' },
+      { name: 'VFX', category: 'Art & Animation' },
+      { name: 'UI Art', category: 'Art & Animation' },
+      { name: 'Sound Design', category: 'Audio' },
+      { name: 'Music Composition', category: 'Audio' },
+      { name: 'Game Mathematics', category: 'Math & Analytics' },
+      { name: 'Probability & Statistics', category: 'Math & Analytics' },
+      { name: 'Data Analysis', category: 'Math & Analytics' },
+      { name: 'PAR Sheet Development', category: 'Math & Analytics' },
+      { name: 'Project Management', category: 'Leadership' },
+      { name: 'Team Leadership', category: 'Leadership' },
+      { name: 'Technical Writing', category: 'Communication' },
+      { name: 'Client Communication', category: 'Communication' },
+      { name: 'Product Management', category: 'Business' },
+    ];
+
+    const performanceQuestions = [
+      { id: 'reliability', label: 'Reliability', question: 'Was this person reliably there when needed, and did they deliver on time?' },
+      { id: 'ability', label: 'Ability', question: 'Did they have the skills and knowledge needed, and did they do the job well?' },
+      { id: 'communication', label: 'Communication', question: 'Were they clear, responsive, and easy to communicate with?' },
+      { id: 'conduct', label: 'Conduct', question: 'Did they behave professionally and take responsibility for their work?' },
+      { id: 'workAgain', label: 'Work Again', question: 'If you had to work on this project again, would you choose them to work with you?' },
+    ];
+
+    // Org Health categories with question pools (random question per category each review)
+    const orgHealthCategories = [
+      { 
+        id: 'leadership', 
+        label: 'Leadership Trust',
+        questions: [
+          'I trust the decisions made by senior leadership.',
+          'Leadership communicates openly and honestly.',
+          'I believe leadership has our best interests at heart.',
+          'Leadership is responsive to employee feedback.'
+        ]
+      },
+      { 
+        id: 'growth', 
+        label: 'Growth & Development',
+        questions: [
+          'I have opportunities to develop and advance my career.',
+          'I am learning and growing in my role.',
+          'My professional development is supported here.',
+          'I can see a future for myself at this company.'
+        ]
+      },
+      { 
+        id: 'safety', 
+        label: 'Psychological Safety',
+        questions: [
+          'I feel safe raising concerns or admitting mistakes.',
+          'I can voice disagreement without fear of retaliation.',
+          'My opinions are valued even when they differ from others.',
+          'It is okay to take risks and fail here.'
+        ]
+      },
+      { 
+        id: 'culture', 
+        label: 'Culture',
+        questions: [
+          'This is a healthy, supportive work environment.',
+          'I feel respected and valued at work.',
+          'The company lives its stated values.',
+          'There is a strong sense of teamwork here.'
+        ]
+      },
+      { 
+        id: 'recommend', 
+        label: 'Recommend',
+        questions: [
+          'I would recommend this company as a great place to work.',
+          'I am proud to tell others I work here.',
+          'I would encourage a friend to join this company.',
+          'This company is a great place to build a career.'
+        ]
+      }
+    ];
+    
+    // Generate random questions for a review (one per category)
+    const generateOrgHealthQuestions = (pulseQuestions = []) => {
+      const questions = orgHealthCategories.map(cat => ({
+        id: cat.id,
+        label: cat.label,
+        question: cat.questions[Math.floor(Math.random() * cat.questions.length)]
+      }));
+      
+      // Add active pulse question if exists
+      const activePulse = pulseQuestions.find(p => p.status === 'active');
+      if (activePulse) {
+        questions.push({ id: 'pulse', label: 'Pulse', question: activePulse.question, pulseId: activePulse.id });
+      }
+      return questions;
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GLASSANT LOGO
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const LOGO_SM = "data:image/png;base64,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";
+    
+    const LOGO_MD = "data:image/png;base64,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";
+    
+    const GlassAntLogo = ({ size = 'md', light = false }) => {
+      const sizes = { sm: 36, md: 44, lg: 56 };
+      const s = sizes[size];
+      const fontSize = size === 'sm' ? 16 : size === 'md' ? 20 : 24;
+      const logoSrc = size === 'sm' ? LOGO_SM : LOGO_MD;
+      
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <img src={logoSrc} alt="GlassAnt" style={{ width: s, height: s }} />
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ 
+              fontSize, 
+              fontWeight: 800, 
+              letterSpacing: '0.5px',
+              lineHeight: 1,
+              color: light ? '#fff' : '#0f172a'
+            }}>
+              glass<span style={{ color: '#22d3ee' }}>Ant</span>
+            </div>
+            {size !== 'sm' && (
+              <div style={{ 
+                fontSize: 9, 
+                fontWeight: 600, 
+                letterSpacing: '1.5px',
+                color: light ? 'rgba(255,255,255,0.7)' : '#64748b',
+                marginTop: 2
+              }}>
+                OWN YOUR JOB REVIEWS
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SETUP WIZARD
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const SetupWizard = ({ onComplete }) => {
+      const [step, setStep] = useState(1);
+      const [org, setOrg] = useState({ name: '', adminName: '', adminEmail: '' });
+      const [skills, setSkills] = useState([]);
+      const [newSkillName, setNewSkillName] = useState('');
+      const [newSkillCategory, setNewSkillCategory] = useState('Engineering');
+      const [roles, setRoles] = useState([]);
+      const [newRole, setNewRole] = useState({ name: '', skillIds: [] });
+      const [showRoleModal, setShowRoleModal] = useState(false);
+      
+      const addSkill = () => {
+        if (newSkillName.trim()) {
+          setSkills([...skills, { id: generateId(), name: newSkillName.trim(), category: newSkillCategory }]);
+          setNewSkillName('');
+        }
+      };
+      
+      const addStarterSkill = (starter) => {
+        if (!skills.find(s => s.name.toLowerCase() === starter.name.toLowerCase())) {
+          setSkills([...skills, { ...starter, id: generateId() }]);
+        }
+      };
+      
+      const removeSkill = (id) => setSkills(skills.filter(s => s.id !== id));
+      
+      const addRole = () => {
+        if (newRole.name && newRole.skillIds.length > 0) {
+          const dedupedSkillIds = [...new Set(newRole.skillIds)];
+          setRoles([...roles, { id: generateId(), name: newRole.name, skillIds: dedupedSkillIds }]);
+          setNewRole({ name: '', skillIds: [] });
+          setShowRoleModal(false);
+        }
+      };
+      
+      const complete = () => {
+        const data = {
+          organization: { ...org, id: generateId(), createdAt: new Date().toISOString() },
+          skills,
+          roles,
+          employees: [{
+            id: generateId(),
+            name: org.adminName,
+            email: org.adminEmail,
+            roleId: roles[0]?.id || null,
+            isAdmin: true,
+            createdAt: new Date().toISOString(),
+          }],
+          reviewRequests: [],
+          reviews: [],
+        };
+        saveData(data);
+        onComplete(data);
+      };
+      
+      return (
+        <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f0fdfa 0%, #f1f5f9 50%, #e0f2fe 100%)', padding: '48px 24px' }}>
+          <div style={{ maxWidth: 700, margin: '0 auto' }}>
+            <div style={{ textAlign: 'center', marginBottom: 48 }}>
+              <GlassAntLogo size="lg" />
+            </div>
+            
+            {/* Progress */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 32 }}>
+              {[1, 2, 3].map(n => (
+                <div key={n} style={{
+                  flex: 1, height: 4, borderRadius: 2,
+                  background: step >= n ? 'linear-gradient(90deg, #0d9488, #14b8a6)' : '#e2e8f0',
+                }} />
+              ))}
+            </div>
+            
+            <div className="card" style={{ padding: 32 }}>
+              {/* Step 1: Company Info */}
+              {step === 1 && (
+                <div>
+                  <h2 style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>Welcome to GlassAnt</h2>
+                  <p className="text-muted mb-6">Let's set up your organization</p>
+                  
+                  <div className="mb-4">
+                    <label className="label">Company Name</label>
+                    <input className="input" value={org.name} onChange={e => setOrg({...org, name: e.target.value})} placeholder="Kingsize Solutions" />
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label className="label">Your Name (Admin)</label>
+                    <input className="input" value={org.adminName} onChange={e => setOrg({...org, adminName: e.target.value})} placeholder="Daniel" />
+                  </div>
+                  
+                  <div className="mb-6">
+                    <label className="label">Your Email</label>
+                    <input className="input" type="email" value={org.adminEmail} onChange={e => setOrg({...org, adminEmail: e.target.value})} placeholder="daniel@kingsize.com" />
+                  </div>
+                  
+                  <button className="btn btn-primary" style={{ width: '100%' }} disabled={!org.name || !org.adminName || !org.adminEmail} onClick={() => setStep(2)}>
+                    Continue
+                  </button>
+                </div>
+              )}
+              
+              {/* Step 2: Create Skills */}
+              {step === 2 && (
+                <div>
+                  <h2 style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>Create Your Skills</h2>
+                  <p className="text-muted text-sm mb-6">Add skills your team uses. These are what employees get reviewed on.</p>
+                  
+                  {/* Add skill form */}
+                  <div style={{ background: 'var(--slate-50)', padding: 16, borderRadius: 12, marginBottom: 24, border: '1px solid var(--slate-200)' }}>
+                    <div className="flex gap-2 mb-2">
+                      <input className="input" style={{ flex: 1 }} value={newSkillName} onChange={e => setNewSkillName(e.target.value)} placeholder="Enter skill name..." onKeyDown={e => e.key === 'Enter' && addSkill()} />
+                      <select className="input" style={{ width: 160 }} value={newSkillCategory} onChange={e => setNewSkillCategory(e.target.value)}>
+                        {skillCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                      </select>
+                      <button className="btn btn-primary" onClick={addSkill}>Add</button>
+                    </div>
+                    <p className="text-xs text-muted">e.g., Unity, Game Mathematics, Sound Design, Incisor, Animation...</p>
+                  </div>
+                  
+                  {/* Quick add */}
+                  <div className="mb-4">
+                    <div className="text-sm text-muted mb-2">Quick add suggestions:</div>
+                    <div className="flex flex-wrap">
+                      {starterSkills.slice(0, 12).map(s => {
+                        const exists = skills.find(sk => sk.name.toLowerCase() === s.name.toLowerCase());
+                        return (
+                          <button key={s.name} onClick={() => !exists && addStarterSkill(s)} className="skill-tag" style={{ opacity: exists ? 0.4 : 1, cursor: exists ? 'default' : 'pointer' }}>
+                            + {s.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  
+                  {/* Current skills */}
+                  <div style={{ marginBottom: 24, maxHeight: 280, overflowY: 'auto' }}>
+                    <div className="text-sm mb-3" style={{ fontWeight: 600, color: '#0f172a' }}>Your Skills ({skills.length})</div>
+                    {skills.length === 0 ? (
+                      <p className="text-muted text-sm">No skills added yet.</p>
+                    ) : (
+                      skillCategories.map(cat => {
+                        const catSkills = skills.filter(s => s.category === cat);
+                        if (catSkills.length === 0) return null;
+                        return (
+                          <div key={cat} className="mb-3">
+                            <div className="text-xs text-muted mb-2">{cat}</div>
+                            {catSkills.map(skill => (
+                              <div key={skill.id} className="skill-item">
+                                <span style={{ fontWeight: 500 }}>{skill.name}</span>
+                                <button className="btn btn-secondary btn-xs" onClick={() => removeSkill(skill.id)}>✕</button>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <button className="btn btn-secondary" onClick={() => setStep(1)}>Back</button>
+                    <button className="btn btn-primary" style={{ flex: 1 }} disabled={skills.length === 0} onClick={() => setStep(3)}>
+                      Continue ({skills.length} skills)
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Step 3: Define Roles */}
+              {step === 3 && (
+                <div>
+                  <h2 style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>Define Roles</h2>
+                  <p className="text-muted text-sm mb-6">Create roles and assign skills. Employees inherit skills from their role.</p>
+                  
+                  {roles.length > 0 && (
+                    <div style={{ marginBottom: 20 }}>
+                      {roles.map(role => (
+                        <div key={role.id} className="card" style={{ padding: 16, marginBottom: 8, border: '1px solid var(--slate-200)' }}>
+                          <div style={{ fontWeight: 600, color: '#0f172a', marginBottom: 6 }}>{role.name}</div>
+                          <div className="flex flex-wrap" style={{ gap: 4 }}>
+                            {role.skillIds.map(id => {
+                              const skill = skills.find(s => s.id === id);
+                              return skill && <span key={id} className="badge badge-teal">{skill.name}</span>;
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <button className="btn btn-secondary" style={{ width: '100%', marginBottom: 24, padding: 16 }} onClick={() => setShowRoleModal(true)}>
+                    + Add Role
+                  </button>
+                  
+                  <div className="flex gap-3">
+                    <button className="btn btn-secondary" onClick={() => setStep(2)}>Back</button>
+                    <button className="btn btn-primary" style={{ flex: 1 }} disabled={roles.length === 0} onClick={complete}>
+                      Complete Setup
+                    </button>
+                  </div>
+                  
+                  {/* Role Modal */}
+                  {showRoleModal && (
+                    <div className="modal-overlay" onClick={() => setShowRoleModal(false)}>
+                      <div className="modal" onClick={e => e.stopPropagation()}>
+                        <h3 className="modal-title">Add Role</h3>
+                        
+                        <div className="mb-4">
+                          <label className="label">Role Name</label>
+                          <input className="input" value={newRole.name} onChange={e => setNewRole({...newRole, name: e.target.value})} placeholder="e.g., Game Designer, Unity Engineer..." />
+                        </div>
+                        
+                        <div className="mb-4">
+                          <label className="label">Assign Skills</label>
+                          <div style={{ maxHeight: 280, overflowY: 'auto', marginTop: 8 }}>
+                            {skillCategories.map(cat => {
+                              const catSkills = skills.filter(s => s.category === cat);
+                              if (catSkills.length === 0) return null;
+                              return (
+                                <div key={cat} className="mb-3">
+                                  <div className="text-xs text-muted mb-2">{cat}</div>
+                                  <div className="flex flex-wrap">
+                                    {catSkills.map(skill => {
+                                      const isSelected = newRole.skillIds.includes(skill.id);
+                                      return (
+                                        <button key={skill.id} onClick={() => setNewRole({ ...newRole, skillIds: isSelected ? newRole.skillIds.filter(id => id !== skill.id) : [...newRole.skillIds, skill.id] })} className={`skill-tag ${isSelected ? 'selected' : ''}`}>
+                                          {isSelected && '✓ '}{skill.name}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        
+                        <div className="flex gap-3">
+                          <button className="btn btn-secondary" onClick={() => setShowRoleModal(false)}>Cancel</button>
+                          <button className="btn btn-primary" style={{ flex: 1 }} disabled={!newRole.name || newRole.skillIds.length === 0} onClick={addRole}>Add Role</button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // NAVIGATION
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const Navigation = ({ view, setView, data }) => (
+      <nav className="nav">
+        <div className="nav-inner">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 40 }}>
+            <GlassAntLogo size="sm" light={true} />
+            <div className="nav-links">
+              <button className={`nav-link ${view === 'dashboard' ? 'active' : ''}`} onClick={() => setView('dashboard')}>Dashboard</button>
+              <button className={`nav-link ${view === 'employees' ? 'active' : ''}`} onClick={() => setView('employees')}>Employees</button>
+              <button className={`nav-link ${view === 'roles' ? 'active' : ''}`} onClick={() => setView('roles')}>Roles</button>
+              <button className={`nav-link ${view === 'skills' ? 'active' : ''}`} onClick={() => setView('skills')}>Skills</button>
+              <button className={`nav-link ${view === 'projects' ? 'active' : ''}`} onClick={() => setView('projects')}>Projects</button>
+              <button className={`nav-link ${view === 'requests' ? 'active' : ''}`} onClick={() => setView('requests')}>
+                Reviews
+                {data.reviewRequests.filter(r => r.status === 'pending').length > 0 && (
+                  <span style={{ marginLeft: 8, background: '#ef4444', color: '#fff', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
+                    {data.reviewRequests.filter(r => r.status === 'pending').length}
+                  </span>
+                )}
+              </button>
+              <button className={`nav-link ${view === 'employer-settings' ? 'active' : ''}`} onClick={() => setView('employer-settings')}>Org Health</button>
+              <button className={`nav-link ${view === 'my-profile' ? 'active' : ''}`} onClick={() => setView('my-profile')}>My Profile</button>
+            </div>
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--slate-400)', fontWeight: 500 }}>
+            {data.organization?.name}
+          </div>
+        </div>
+      </nav>
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DASHBOARD
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const Dashboard = ({ data, setView }) => {
+      const pendingRequests = data.reviewRequests.filter(r => r.status === 'pending').length;
+      const completedReviews = data.reviews.length;
+      const activeProjects = (data.projects || []).filter(p => p.status === 'active').length;
+      
+      return (
+        <div className="container">
+          <h1 className="page-title">Dashboard</h1>
+          <p className="page-desc">Welcome to {data.organization?.name}</p>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 16, marginBottom: 32 }}>
+            {[
+              { value: data.employees.length, label: 'Employees', color: 'var(--teal-600)' },
+              { value: data.roles.length, label: 'Roles', color: 'var(--slate-700)' },
+              { value: data.skills.length, label: 'Skills', color: 'var(--teal-500)' },
+              { value: activeProjects, label: 'Projects', color: '#7c3aed' },
+              { value: pendingRequests, label: 'Pending', color: '#f59e0b' },
+              { value: completedReviews, label: 'Completed', color: '#10b981' },
+            ].map((stat, i) => (
+              <div key={i} className="card stat-card">
+                <div className="stat-value" style={{ color: stat.color }}>{stat.value}</div>
+                <div className="stat-label">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="card" style={{ padding: 24 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', marginBottom: 16 }}>Quick Actions</h2>
+            <div className="flex gap-3 flex-wrap">
+              <button className="btn btn-primary" onClick={() => setView('add-employee')}>+ Add Employee</button>
+              <button className="btn btn-secondary" onClick={() => setView('projects')}>Manage Projects</button>
+              <button className="btn btn-secondary" onClick={() => setView('request-review')}>Request Review</button>
+              <button className="btn btn-secondary" onClick={() => setView('skills')}>Manage Skills</button>
+              <button className="btn btn-secondary" onClick={() => setView('roles')}>Manage Roles</button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SKILLS MANAGEMENT
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const SkillsManagement = ({ data, setData }) => {
+      const [newSkillName, setNewSkillName] = useState('');
+      const [newSkillCategory, setNewSkillCategory] = useState('Engineering');
+      
+      const addSkill = () => {
+        if (newSkillName.trim()) {
+          const skill = { id: generateId(), name: newSkillName.trim(), category: newSkillCategory };
+          const updated = { ...data, skills: [...data.skills, skill] };
+          setData(updated);
+          saveData(updated);
+          setNewSkillName('');
+        }
+      };
+      
+      const removeSkill = (id) => {
+        const usedInRoles = data.roles.filter(r => r.skillIds.includes(id));
+        if (usedInRoles.length > 0) {
+          alert(`Cannot delete: used in ${usedInRoles.length} role(s)`);
+          return;
+        }
+        const updated = { ...data, skills: data.skills.filter(s => s.id !== id) };
+        setData(updated);
+        saveData(updated);
+      };
+      
+      const getUsageCount = (skillId) => data.roles.filter(r => r.skillIds.includes(skillId)).length;
+      
+      return (
+        <div className="container">
+          <h1 className="page-title">Skills</h1>
+          <p className="page-desc">Manage your organization's skill library</p>
+          
+          <div className="card" style={{ padding: 20, marginBottom: 24 }}>
+            <div className="flex gap-2">
+              <input className="input" style={{ flex: 1 }} value={newSkillName} onChange={e => setNewSkillName(e.target.value)} placeholder="Add new skill..." onKeyDown={e => e.key === 'Enter' && addSkill()} />
+              <select className="input" style={{ width: 180 }} value={newSkillCategory} onChange={e => setNewSkillCategory(e.target.value)}>
+                {skillCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              </select>
+              <button className="btn btn-primary" onClick={addSkill}>Add Skill</button>
+            </div>
+          </div>
+          
+          {skillCategories.map(cat => {
+            const catSkills = data.skills.filter(s => s.category === cat);
+            if (catSkills.length === 0) return null;
+            return (
+              <div key={cat} className="category-section">
+                <div className="category-header">{cat} ({catSkills.length})</div>
+                <div className="card">
+                  <table className="table">
+                    <thead><tr><th>Skill</th><th>Used in Roles</th><th></th></tr></thead>
+                    <tbody>
+                      {catSkills.map(skill => (
+                        <tr key={skill.id}>
+                          <td style={{ fontWeight: 500 }}>{skill.name}</td>
+                          <td>{getUsageCount(skill.id) > 0 ? <span className="badge badge-teal">{getUsageCount(skill.id)} roles</span> : <span className="text-muted text-sm">Not assigned</span>}</td>
+                          <td style={{ textAlign: 'right' }}><button className="btn btn-secondary btn-sm" onClick={() => removeSkill(skill.id)}>Delete</button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EMPLOYEES
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const Employees = ({ data, setData, setView, setSelectedEmployee }) => {
+      const [editingEmployee, setEditingEmployee] = useState(null);
+      const [editForm, setEditForm] = useState({ name: '', email: '', roleId: '' });
+      
+      const getRole = (roleId) => data.roles.find(r => r.id === roleId);
+      const getReviewCount = (empId) => data.reviews.filter(r => r.subjectId === empId).length;
+      const getTier = (count) => {
+        if (count >= 10) return { label: 'Verified', class: 'badge-green' };
+        if (count >= 6) return { label: 'Established', class: 'badge-teal' };
+        if (count >= 3) return { label: 'Developing', class: 'badge-yellow' };
+        return { label: 'Building', class: 'badge-gray' };
+      };
+      
+      const openEdit = (emp) => {
+        setEditForm({ name: emp.name, email: emp.email, roleId: emp.roleId || '' });
+        setEditingEmployee(emp);
+      };
+      
+      const saveEdit = () => {
+        const updated = { 
+          ...data, 
+          employees: data.employees.map(e => e.id === editingEmployee.id ? { ...e, ...editForm } : e) 
+        };
+        setData(updated);
+        saveData(updated);
+        setEditingEmployee(null);
+      };
+      
+      const deleteEmployee = (emp) => {
+        if (emp.isAdmin) { alert('Cannot delete admin user'); return; }
+        if (!confirm(`Delete ${emp.name}? This cannot be undone.`)) return;
+        const updated = { 
+          ...data, 
+          employees: data.employees.filter(e => e.id !== emp.id),
+          reviewRequests: data.reviewRequests.filter(r => r.subjectId !== emp.id),
+          reviews: data.reviews.filter(r => r.subjectId !== emp.id)
+        };
+        setData(updated);
+        saveData(updated);
+      };
+      
+      return (
+        <div className="container">
+          <div className="flex justify-between items-center mb-6">
+            <div><h1 className="page-title">Employees</h1><p className="page-desc" style={{ marginBottom: 0 }}>{data.employees.length} team members</p></div>
+            <button className="btn btn-primary" onClick={() => setView('add-employee')}>+ Add Employee</button>
+          </div>
+          
+          <div className="card">
+            <table className="table">
+              <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Reviews</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                {data.employees.map(emp => {
+                  const role = getRole(emp.roleId);
+                  const reviewCount = getReviewCount(emp.id);
+                  const tier = getTier(reviewCount);
+                  return (
+                    <tr key={emp.id}>
+                      <td style={{ fontWeight: 500 }}>{emp.name}{emp.isAdmin && <span className="badge badge-purple" style={{ marginLeft: 8 }}>Admin</span>}</td>
+                      <td className="text-muted">{emp.email}</td>
+                      <td>{role?.name || <span className="text-muted">—</span>}</td>
+                      <td>{reviewCount}</td>
+                      <td><span className={`badge ${tier.class}`}>{tier.label}</span></td>
+                      <td>
+                        <div className="flex gap-2">
+                          <button className="btn btn-secondary btn-xs" onClick={() => openEdit(emp)}>Edit</button>
+                          <button className="btn btn-secondary btn-xs" onClick={() => { setSelectedEmployee(emp); setView('employee-detail'); }}>View</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          
+          {editingEmployee && (
+            <div className="modal-overlay">
+              <div className="modal" style={{ maxWidth: 450 }}>
+                <h3 style={{ marginBottom: 20 }}>Edit Employee</h3>
+                <div className="mb-4">
+                  <label className="label">Name</label>
+                  <input className="input" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} />
+                </div>
+                <div className="mb-4">
+                  <label className="label">Email</label>
+                  <input className="input" type="email" value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} />
+                </div>
+                <div className="mb-6">
+                  <label className="label">Role</label>
+                  <select className="input" value={editForm.roleId} onChange={e => setEditForm({...editForm, roleId: e.target.value})}>
+                    <option value="">No role assigned</option>
+                    {data.roles.map(role => <option key={role.id} value={role.id}>{role.name}</option>)}
+                  </select>
+                </div>
+                <div className="flex gap-3">
+                  <button className="btn btn-secondary" onClick={() => setEditingEmployee(null)}>Cancel</button>
+                  {!editingEmployee.isAdmin && (
+                    <button className="btn btn-danger btn-sm" onClick={() => { deleteEmployee(editingEmployee); setEditingEmployee(null); }}>Delete</button>
+                  )}
+                  <button className="btn btn-primary" style={{ flex: 1 }} disabled={!editForm.name || !editForm.email} onClick={saveEdit}>Save Changes</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ADD EMPLOYEE
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const AddEmployee = ({ data, setData, setView }) => {
+      const [form, setForm] = useState({ name: '', email: '', roleId: '' });
+      
+      const submit = () => {
+        const newEmployee = { id: generateId(), ...form, isAdmin: false, createdAt: new Date().toISOString() };
+        const updated = { ...data, employees: [...data.employees, newEmployee] };
+        setData(updated);
+        saveData(updated);
+        setView('employees');
+      };
+      
+      return (
+        <div className="container" style={{ maxWidth: 500 }}>
+          <h1 className="page-title">Add Employee</h1>
+          <p className="page-desc">Add a new team member</p>
+          
+          <div className="card" style={{ padding: 24 }}>
+            <div className="mb-4"><label className="label">Name</label><input className="input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
+            <div className="mb-4"><label className="label">Email</label><input className="input" type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} /></div>
+            <div className="mb-6">
+              <label className="label">Role</label>
+              <select className="input" value={form.roleId} onChange={e => setForm({...form, roleId: e.target.value})}>
+                <option value="">Select role...</option>
+                {data.roles.map(role => <option key={role.id} value={role.id}>{role.name}</option>)}
+              </select>
+            </div>
+            <div className="flex gap-3">
+              <button className="btn btn-secondary" onClick={() => setView('employees')}>Cancel</button>
+              <button className="btn btn-primary" style={{ flex: 1 }} disabled={!form.name || !form.email || !form.roleId} onClick={submit}>Add Employee</button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ROLES
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const Roles = ({ data, setData }) => {
+      const [showModal, setShowModal] = useState(false);
+      const [editingRole, setEditingRole] = useState(null);
+      const [newRole, setNewRole] = useState({ name: '', skillIds: [] });
+      
+      const getEmployeeCount = (roleId) => data.employees.filter(e => e.roleId === roleId).length;
+      
+      const openAddModal = () => { setEditingRole(null); setNewRole({ name: '', skillIds: [] }); setShowModal(true); };
+      const openEditModal = (role) => { setEditingRole(role); setNewRole({ name: role.name, skillIds: [...role.skillIds] }); setShowModal(true); };
+      
+      const saveRole = () => {
+        const dedupedSkillIds = [...new Set(newRole.skillIds)];
+        if (editingRole) {
+          const updated = { ...data, roles: data.roles.map(r => r.id === editingRole.id ? { ...r, name: newRole.name, skillIds: dedupedSkillIds } : r) };
+          setData(updated); saveData(updated);
+        } else {
+          const role = { id: generateId(), name: newRole.name, skillIds: dedupedSkillIds };
+          const updated = { ...data, roles: [...data.roles, role] };
+          setData(updated); saveData(updated);
+        }
+        setShowModal(false);
+      };
+      
+      const deleteRole = (roleId) => {
+        const empCount = getEmployeeCount(roleId);
+        if (empCount > 0) { alert(`Cannot delete: ${empCount} employee(s) assigned`); return; }
+        const updated = { ...data, roles: data.roles.filter(r => r.id !== roleId) };
+        setData(updated); saveData(updated);
+      };
+      
+      return (
+        <div className="container">
+          <div className="flex justify-between items-center mb-6">
+            <div><h1 className="page-title">Roles</h1><p className="page-desc" style={{ marginBottom: 0 }}>{data.roles.length} roles defined</p></div>
+            <button className="btn btn-primary" onClick={openAddModal}>+ Add Role</button>
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+            {data.roles.map(role => (
+              <div key={role.id} className="card" style={{ padding: 20 }}>
+                <div className="flex justify-between items-center mb-3">
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{role.name}</div>
+                  <span className="badge badge-gray">{getEmployeeCount(role.id)} employees</span>
+                </div>
+                <div className="flex flex-wrap mb-4" style={{ gap: 6 }}>
+                  {role.skillIds.map(skillId => {
+                    const skill = data.skills.find(s => s.id === skillId);
+                    return skill && <span key={skillId} className="badge badge-teal">{skill.name}</span>;
+                  })}
+                </div>
+                <div className="flex gap-2">
+                  <button className="btn btn-secondary btn-sm" onClick={() => openEditModal(role)}>Edit</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => deleteRole(role.id)}>Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {showModal && (
+            <div className="modal-overlay" onClick={() => setShowModal(false)}>
+              <div className="modal" onClick={e => e.stopPropagation()}>
+                <h3 className="modal-title">{editingRole ? 'Edit Role' : 'Add Role'}</h3>
+                <div className="mb-4"><label className="label">Role Name</label><input className="input" value={newRole.name} onChange={e => setNewRole({...newRole, name: e.target.value})} /></div>
+                <div className="mb-4">
+                  <label className="label">Skills</label>
+                  <div style={{ maxHeight: 280, overflowY: 'auto', marginTop: 8 }}>
+                    {skillCategories.map(cat => {
+                      const catSkills = data.skills.filter(s => s.category === cat);
+                      if (catSkills.length === 0) return null;
+                      return (
+                        <div key={cat} className="mb-3">
+                          <div className="text-xs text-muted mb-2">{cat}</div>
+                          <div className="flex flex-wrap">
+                            {catSkills.map(skill => {
+                              const isSelected = newRole.skillIds.includes(skill.id);
+                              return <button key={skill.id} onClick={() => setNewRole({ ...newRole, skillIds: isSelected ? newRole.skillIds.filter(id => id !== skill.id) : [...newRole.skillIds, skill.id] })} className={`skill-tag ${isSelected ? 'selected' : ''}`}>{isSelected && '✓ '}{skill.name}</button>;
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
+                  <button className="btn btn-primary" style={{ flex: 1 }} disabled={!newRole.name} onClick={saveRole}>{editingRole ? 'Save' : 'Add Role'}</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PROJECTS
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const Projects = ({ data, setData }) => {
+      const [showModal, setShowModal] = useState(false);
+      const [editingProject, setEditingProject] = useState(null);
+      const [form, setForm] = useState({ name: '', description: '', status: 'active', employeeIds: [] });
+      
+      const openAdd = () => { setEditingProject(null); setForm({ name: '', description: '', status: 'active', employeeIds: [] }); setShowModal(true); };
+      const openEdit = (project) => { setEditingProject(project); setForm({ name: project.name, description: project.description || '', status: project.status, employeeIds: [...(project.employeeIds || [])] }); setShowModal(true); };
+      
+      const saveProject = () => {
+        const dedupedEmployeeIds = [...new Set(form.employeeIds)];
+        if (editingProject) {
+          const updated = { ...data, projects: data.projects.map(p => p.id === editingProject.id ? { ...p, ...form, employeeIds: dedupedEmployeeIds } : p) };
+          setData(updated); saveData(updated);
+        } else {
+          const project = { id: generateId(), ...form, employeeIds: dedupedEmployeeIds, createdAt: new Date().toISOString(), createdBy: data.employees.find(e => e.isAdmin)?.id };
+          const updated = { ...data, projects: [...(data.projects || []), project] };
+          setData(updated); saveData(updated);
+        }
+        setShowModal(false);
+      };
+      
+      const deleteProject = (projectId) => {
+        const reviewCount = data.reviewRequests.filter(r => r.projectId === projectId).length;
+        if (reviewCount > 0 && !confirm(`This project has ${reviewCount} review request(s). Delete anyway?`)) return;
+        const updated = { ...data, projects: data.projects.filter(p => p.id !== projectId) };
+        setData(updated); saveData(updated);
+      };
+      
+      const getEmployeeName = (id) => data.employees.find(e => e.id === id)?.name || 'Unknown';
+      const getReviewCount = (projectId) => data.reviewRequests.filter(r => r.projectId === projectId).length;
+      
+      const projects = data.projects || [];
+      const activeProjects = projects.filter(p => p.status === 'active');
+      const completedProjects = projects.filter(p => p.status === 'completed');
+      
+      return (
+        <div className="container">
+          <div className="flex justify-between items-center mb-6">
+            <div><h1 className="page-title">Projects</h1><p className="page-desc" style={{ marginBottom: 0 }}>{projects.length} projects</p></div>
+            <button className="btn btn-primary" onClick={openAdd}>+ Add Project</button>
+          </div>
+          
+          {activeProjects.length > 0 && (
+            <div className="mb-6">
+              <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--slate-600)', marginBottom: 12 }}>Active Projects</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+                {activeProjects.map(project => (
+                  <div key={project.id} className="card" style={{ padding: 20 }}>
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 style={{ fontSize: 16, fontWeight: 600 }}>{project.name}</h4>
+                      <span className="badge badge-green">Active</span>
+                    </div>
+                    {project.description && <p className="text-sm text-muted mb-3">{project.description}</p>}
+                    <div className="text-xs text-muted mb-3">
+                      {(project.employeeIds || []).length} team member{(project.employeeIds || []).length !== 1 ? 's' : ''} · {getReviewCount(project.id)} review request{getReviewCount(project.id) !== 1 ? 's' : ''}
+                    </div>
+                    {(project.employeeIds || []).length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {project.employeeIds.slice(0, 5).map(id => (
+                          <span key={id} className="badge badge-gray">{getEmployeeName(id)}</span>
+                        ))}
+                        {project.employeeIds.length > 5 && <span className="badge badge-gray">+{project.employeeIds.length - 5} more</span>}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <button className="btn btn-secondary btn-xs" onClick={() => openEdit(project)}>Edit</button>
+                      <button className="btn btn-secondary btn-xs" onClick={() => deleteProject(project.id)}>Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {completedProjects.length > 0 && (
+            <div>
+              <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--slate-600)', marginBottom: 12 }}>Completed Projects</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+                {completedProjects.map(project => (
+                  <div key={project.id} className="card" style={{ padding: 20, opacity: 0.7 }}>
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 style={{ fontSize: 16, fontWeight: 600 }}>{project.name}</h4>
+                      <span className="badge badge-gray">Completed</span>
+                    </div>
+                    {project.description && <p className="text-sm text-muted mb-3">{project.description}</p>}
+                    <div className="text-xs text-muted mb-3">
+                      {(project.employeeIds || []).length} team member{(project.employeeIds || []).length !== 1 ? 's' : ''} · {getReviewCount(project.id)} review{getReviewCount(project.id) !== 1 ? 's' : ''}
+                    </div>
+                    <div className="flex gap-2">
+                      <button className="btn btn-secondary btn-xs" onClick={() => openEdit(project)}>Edit</button>
+                      <button className="btn btn-secondary btn-xs" onClick={() => deleteProject(project.id)}>Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {projects.length === 0 && (
+            <div className="card" style={{ padding: 40, textAlign: 'center' }}>
+              <p className="text-muted">No projects yet. Create one to start tracking work and requesting reviews.</p>
+            </div>
+          )}
+          
+          {showModal && (
+            <div className="modal-overlay">
+              <div className="modal" style={{ maxWidth: 500 }}>
+                <h3 style={{ marginBottom: 20 }}>{editingProject ? 'Edit Project' : 'Add Project'}</h3>
+                <div className="mb-4">
+                  <label className="label">Project Name</label>
+                  <input className="input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="e.g., Q3 Feature Release" />
+                </div>
+                <div className="mb-4">
+                  <label className="label">Description (optional)</label>
+                  <textarea className="input" rows={3} value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="Brief description of the project..." />
+                </div>
+                <div className="mb-4">
+                  <label className="label">Status</label>
+                  <select className="input" value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+                <div className="mb-6">
+                  <label className="label">Team Members</label>
+                  <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--slate-200)', borderRadius: 8, padding: 8 }}>
+                    {data.employees.map(emp => {
+                      const isSelected = form.employeeIds.includes(emp.id);
+                      return (
+                        <label key={emp.id} style={{ display: 'flex', alignItems: 'center', padding: '8px 4px', cursor: 'pointer', borderBottom: '1px solid var(--slate-100)' }}>
+                          <input type="checkbox" checked={isSelected} onChange={() => setForm({...form, employeeIds: isSelected ? form.employeeIds.filter(id => id !== emp.id) : [...form.employeeIds, emp.id]})} style={{ marginRight: 12 }} />
+                          <span style={{ fontWeight: 500 }}>{emp.name}</span>
+                          <span className="text-xs text-muted" style={{ marginLeft: 8 }}>{data.roles.find(r => r.id === emp.roleId)?.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
+                  <button className="btn btn-primary" style={{ flex: 1 }} disabled={!form.name} onClick={saveProject}>{editingProject ? 'Save Changes' : 'Create Project'}</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EMPLOYER SETTINGS (Custom Questions)
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const EmployerSettings = ({ data, setData }) => {
+      const [newQuestion, setNewQuestion] = useState('');
+      const [selectedPulse, setSelectedPulse] = useState(null);
+      
+      const pulseQuestions = data.pulseQuestions || [];
+      const activePulse = pulseQuestions.find(p => p.status === 'active');
+      const closedPulses = pulseQuestions.filter(p => p.status === 'closed');
+      
+      const startPulse = () => {
+        if (!newQuestion.trim()) return;
+        
+        // Close any active pulse first
+        let updated = pulseQuestions.map(p => 
+          p.status === 'active' ? { ...p, status: 'closed', endDate: new Date().toISOString() } : p
+        );
+        
+        // Add new pulse
+        const newPulse = { 
+          id: generateId(), 
+          question: newQuestion.trim(), 
+          startDate: new Date().toISOString(), 
+          endDate: null, 
+          status: 'active' 
+        };
+        updated = [...updated, newPulse];
+        
+        const newData = { ...data, pulseQuestions: updated };
+        setData(newData);
+        saveData(newData);
+        setNewQuestion('');
+      };
+      
+      const closePulse = () => {
+        if (!activePulse) return;
+        const updated = pulseQuestions.map(p => 
+          p.id === activePulse.id ? { ...p, status: 'closed', endDate: new Date().toISOString() } : p
+        );
+        const newData = { ...data, pulseQuestions: updated };
+        setData(newData);
+        saveData(newData);
+      };
+      
+      // Get stats for a specific pulse question
+      const getPulseStats = (pulseId) => {
+        const reviews = (data.reviews || []).filter(r => r.pulseQuestionId === pulseId);
+        if (reviews.length < 3) return { count: reviews.length, avg: null, locked: true }; // Lower threshold for pulse
+        const scores = reviews.map(r => r.pulseScore).filter(Boolean);
+        if (scores.length === 0) return { count: 0, avg: null, locked: true };
+        return { 
+          count: scores.length, 
+          avg: (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1),
+          locked: false
+        };
+      };
+      
+      // Calculate average scores per category
+      const getOrgHealthStats = () => {
+        const reviews = data.reviews || [];
+        if (reviews.length < 10) return null;
+        
+        const stats = {};
+        orgHealthCategories.forEach(cat => {
+          const scores = reviews.map(r => r.orgHealth?.[cat.id]).filter(Boolean);
+          if (scores.length > 0) {
+            stats[cat.id] = { 
+              label: cat.label, 
+              avg: (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1),
+              count: scores.length
+            };
+          }
+        });
+        return stats;
+      };
+      
+      const stats = getOrgHealthStats();
+      
+      return (
+        <div className="container">
+          <h1 className="page-title">Organization Health</h1>
+          <p className="page-desc">Track org health and run pulse questions with discrete data collection periods</p>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+            {/* Left Column - Pulse Questions */}
+            <div>
+              <div className="card" style={{ padding: 24, marginBottom: 24 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>🎯 Pulse Question</h3>
+                <p className="text-muted text-sm mb-4">
+                  Run one custom question at a time. Each pulse has its own start/end dates and collects separate data. 
+                  Starting a new pulse closes the current one.
+                </p>
+                
+                {activePulse ? (
+                  <div>
+                    <div style={{ padding: 16, background: 'linear-gradient(135deg, var(--teal-50), #f0fdfa)', borderRadius: 12, marginBottom: 16, border: '2px solid var(--teal-300)' }}>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="badge badge-green">● Active</span>
+                        <span className="text-xs text-muted">Started {new Date(activePulse.startDate).toLocaleDateString()}</span>
+                      </div>
+                      <div style={{ fontWeight: 600, fontSize: 15, marginTop: 8 }}>"{activePulse.question}"</div>
+                      {(() => {
+                        const pulseStats = getPulseStats(activePulse.id);
+                        return (
+                          <div style={{ marginTop: 12, padding: 12, background: 'rgba(255,255,255,0.7)', borderRadius: 8 }}>
+                            {pulseStats.locked ? (
+                              <div className="text-sm text-muted">🔒 {pulseStats.count}/3 responses (3 min for results)</div>
+                            ) : (
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm">{pulseStats.count} responses</span>
+                                <span style={{ fontWeight: 700, fontSize: 20, color: parseFloat(pulseStats.avg) >= 4 ? '#10b981' : parseFloat(pulseStats.avg) >= 3 ? '#f59e0b' : '#ef4444' }}>{pulseStats.avg}/5</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                    <button className="btn btn-secondary btn-sm" onClick={closePulse}>Close This Pulse</button>
+                  </div>
+                ) : (
+                  <div>
+                    <textarea className="input mb-3" rows={2} value={newQuestion} onChange={e => setNewQuestion(e.target.value)} placeholder="e.g., I have the tools and resources I need to do my job effectively." />
+                    <button className="btn btn-primary" disabled={!newQuestion.trim()} onClick={startPulse}>Start New Pulse</button>
+                  </div>
+                )}
+              </div>
+              
+              {/* Pulse History */}
+              {closedPulses.length > 0 && (
+                <div className="card" style={{ padding: 24 }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Pulse History</h3>
+                  <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                    {closedPulses.slice().reverse().map((pulse) => {
+                      const pulseStats = getPulseStats(pulse.id);
+                      return (
+                        <div key={pulse.id} 
+                          style={{ padding: 16, background: selectedPulse?.id === pulse.id ? 'var(--teal-50)' : '#f8fafc', borderRadius: 8, marginBottom: 12, cursor: 'pointer', border: selectedPulse?.id === pulse.id ? '2px solid var(--teal-300)' : '1px solid #e2e8f0' }}
+                          onClick={() => setSelectedPulse(selectedPulse?.id === pulse.id ? null : pulse)}
+                        >
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="badge badge-gray">Closed</span>
+                            {!pulseStats.locked && (
+                              <span style={{ fontWeight: 700, color: parseFloat(pulseStats.avg) >= 4 ? '#10b981' : parseFloat(pulseStats.avg) >= 3 ? '#f59e0b' : '#ef4444' }}>{pulseStats.avg}/5</span>
+                            )}
+                          </div>
+                          <div style={{ fontWeight: 500, fontSize: 14 }}>"{pulse.question}"</div>
+                          <div className="text-xs text-muted mt-2">
+                            {new Date(pulse.startDate).toLocaleDateString()} → {new Date(pulse.endDate).toLocaleDateString()} · {pulseStats.count} responses
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Right Column - Org Health Stats */}
+            <div className="card" style={{ padding: 24 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>📊 Organization Health Scores</h3>
+              {(data.reviews || []).length < 10 ? (
+                <div style={{ padding: 32, textAlign: 'center', color: 'var(--slate-500)' }}>
+                  <div style={{ fontSize: 48, marginBottom: 8 }}>🔒</div>
+                  <div style={{ fontWeight: 600, marginBottom: 4 }}>Not enough data yet</div>
+                  <div className="text-sm">Scores visible after 10 completed reviews to ensure anonymity.</div>
+                  <div className="text-sm mt-2" style={{ fontWeight: 600 }}>{(data.reviews || []).length}/10 reviews</div>
+                </div>
+              ) : stats ? (
+                <div>
+                  {Object.entries(stats).map(([id, s]) => (
+                    <div key={id} style={{ marginBottom: 20 }}>
+                      <div className="flex justify-between items-center mb-2">
+                        <span style={{ fontWeight: 600 }}>{s.label}</span>
+                        <span style={{ fontWeight: 700, fontSize: 18, color: parseFloat(s.avg) >= 4 ? '#10b981' : parseFloat(s.avg) >= 3 ? '#f59e0b' : '#ef4444' }}>{s.avg}</span>
+                      </div>
+                      <div style={{ height: 10, background: '#e2e8f0', borderRadius: 5, overflow: 'hidden' }}>
+                        <div style={{ width: `${(parseFloat(s.avg) / 5) * 100}%`, height: '100%', background: parseFloat(s.avg) >= 4 ? '#10b981' : parseFloat(s.avg) >= 3 ? '#f59e0b' : '#ef4444', borderRadius: 5, transition: 'width 0.3s' }} />
+                      </div>
+                      <div className="text-xs text-muted mt-1">{s.count} responses</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-muted">No data available</div>
+              )}
+            </div>
+          </div>
+          
+          {/* Question Pool Reference */}
+          <div className="card mt-6" style={{ padding: 24 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Standard Question Categories</h3>
+            <p className="text-muted text-sm mb-4">Each category has 4 question variations. A random question is shown per category in each review.</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+              {orgHealthCategories.map(cat => (
+                <div key={cat.id} style={{ padding: 16, background: '#f8fafc', borderRadius: 8 }}>
+                  <div style={{ fontWeight: 600, marginBottom: 8, color: 'var(--teal-600)' }}>{cat.label}</div>
+                  <ul className="text-sm text-muted" style={{ margin: 0, paddingLeft: 16 }}>
+                    {cat.questions.map((q, i) => <li key={i} style={{ marginBottom: 4 }}>{q}</li>)}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // REQUEST REVIEW
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const RequestReview = ({ data, setData, setView, currentUser }) => {
+      const [form, setForm] = useState({ subjectId: currentUser?.id || '', projectId: '', reviewerEmail: '', relationship: '', workPeriodFrom: '', workPeriodTo: '', skillIds: [] });
+      
+      const subject = data.employees.find(e => e.id === form.subjectId);
+      const role = subject ? data.roles.find(r => r.id === subject.roleId) : null;
+      const availableSkills = role ? role.skillIds.map(id => data.skills.find(s => s.id === id)).filter(Boolean) : [];
+      
+      // Get projects the selected employee is part of
+      const availableProjects = (data.projects || []).filter(p => 
+        p.status === 'active' && (p.employeeIds || []).includes(form.subjectId)
+      );
+      
+      const toggleSkill = (skillId) => {
+        if (form.skillIds.includes(skillId)) setForm({ ...form, skillIds: form.skillIds.filter(id => id !== skillId) });
+        else if (form.skillIds.length < 3) setForm({ ...form, skillIds: [...form.skillIds, skillId] });
+      };
+      
+      const submit = () => {
+        const request = { id: generateId(), ...form, status: 'pending', createdAt: new Date().toISOString() };
+        const updated = { ...data, reviewRequests: [...data.reviewRequests, request] };
+        setData(updated); saveData(updated); setView('requests');
+      };
+      
+      return (
+        <div className="container" style={{ maxWidth: 600 }}>
+          <h1 className="page-title">Request Review</h1>
+          <p className="page-desc">Ask someone to review work performance</p>
+          
+          <div className="card" style={{ padding: 24 }}>
+            <div className="mb-4">
+              <label className="label">Who is being reviewed?</label>
+              <select className="input" value={form.subjectId} onChange={e => setForm({...form, subjectId: e.target.value, projectId: '', skillIds: []})}>
+                <option value="">Select employee...</option>
+                {data.employees.map(emp => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
+              </select>
+            </div>
+            
+            {form.subjectId && availableProjects.length > 0 && (
+              <div className="mb-4">
+                <label className="label">Project (optional)</label>
+                <select className="input" value={form.projectId} onChange={e => setForm({...form, projectId: e.target.value})}>
+                  <option value="">General review (no specific project)</option>
+                  {availableProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+            )}
+            
+            {form.subjectId && availableSkills.length > 0 && (
+              <div className="mb-4">
+                <label className="label">Skills to verify (max 3)</label>
+                <p className="text-muted text-sm mb-2">From role: {role?.name}</p>
+                <div className="flex flex-wrap">
+                  {availableSkills.map(skill => {
+                    const isSelected = form.skillIds.includes(skill.id);
+                    const disabled = !isSelected && form.skillIds.length >= 3;
+                    return <button key={skill.id} onClick={() => !disabled && toggleSkill(skill.id)} className={`skill-tag ${isSelected ? 'selected' : ''}`} style={{ opacity: disabled ? 0.4 : 1 }}>{isSelected && '✓ '}{skill.name}</button>;
+                  })}
+                </div>
+              </div>
+            )}
+            
+            <div className="mb-4"><label className="label">Reviewer Email</label><input className="input" type="email" value={form.reviewerEmail} onChange={e => setForm({...form, reviewerEmail: e.target.value})} placeholder="reviewer@company.com" /></div>
+            
+            <div className="mb-4">
+              <label className="label">Relationship</label>
+              <select className="input" value={form.relationship} onChange={e => setForm({...form, relationship: e.target.value})}>
+                <option value="">Select...</option>
+                <option value="supervisor">Supervisor</option>
+                <option value="subordinate">Subordinate</option>
+                <option value="team-member">Team Member</option>
+                <option value="third-party">Third Party / Client</option>
+              </select>
+            </div>
+            
+            <div className="grid-2 mb-6">
+              <div><label className="label">From</label><input className="input" type="month" value={form.workPeriodFrom} onChange={e => setForm({...form, workPeriodFrom: e.target.value})} /></div>
+              <div><label className="label">To</label><input className="input" type="month" value={form.workPeriodTo} onChange={e => setForm({...form, workPeriodTo: e.target.value})} /></div>
+            </div>
+            
+            <div className="flex gap-3">
+              <button className="btn btn-secondary" onClick={() => setView('requests')}>Cancel</button>
+              <button className="btn btn-primary" style={{ flex: 1 }} disabled={!form.subjectId || !form.reviewerEmail || !form.relationship || form.skillIds.length === 0} onClick={submit}>Send Request</button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // REVIEW REQUESTS LIST
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const ReviewRequests = ({ data, setData, setView, setSelectedRequest }) => {
+      const getSubject = (id) => data.employees.find(e => e.id === id);
+      const getProject = (id) => (data.projects || []).find(p => p.id === id);
+      
+      return (
+        <div className="container">
+          <div className="flex justify-between items-center mb-6">
+            <div><h1 className="page-title">Reviews</h1><p className="page-desc" style={{ marginBottom: 0 }}>{data.reviewRequests.length} review requests</p></div>
+            <button className="btn btn-primary" onClick={() => setView('request-review')}>+ Request Review</button>
+          </div>
+          
+          {data.reviewRequests.length === 0 ? (
+            <div className="card empty-state">
+              <p>No review requests yet</p>
+              <button className="btn btn-primary mt-4" onClick={() => setView('request-review')}>Request Your First Review</button>
+            </div>
+          ) : (
+            <div className="card">
+              <table className="table">
+                <thead><tr><th>Subject</th><th>Project</th><th>Reviewer</th><th>Skills</th><th>Status</th><th>Date</th><th></th></tr></thead>
+                <tbody>
+                  {data.reviewRequests.map(req => {
+                    const subject = getSubject(req.subjectId);
+                    const project = getProject(req.projectId);
+                    return (
+                      <tr key={req.id}>
+                        <td style={{ fontWeight: 500 }}>{subject?.name || '—'}</td>
+                        <td>{project ? <span className="badge badge-purple">{project.name}</span> : <span className="text-muted">—</span>}</td>
+                        <td className="text-muted">{req.reviewerEmail}</td>
+                        <td>{req.skillIds.map(id => { const skill = data.skills.find(s => s.id === id); return <span key={id} className="badge badge-teal" style={{ marginRight: 4 }}>{skill?.name}</span>; })}</td>
+                        <td><span className={`badge ${req.status === 'pending' ? 'badge-yellow' : 'badge-green'}`}>{req.status}</span></td>
+                        <td className="text-muted text-sm">{new Date(req.createdAt).toLocaleDateString()}</td>
+                        <td>{req.status === 'pending' && <button className="btn btn-primary btn-sm" onClick={() => { setSelectedRequest(req); setView('submit-review'); }}>Submit</button>}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SUBMIT REVIEW
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const SubmitReview = ({ data, setData, setView, request }) => {
+      const [step, setStep] = useState(1);
+      const [performance, setPerformance] = useState({});
+      const [performanceSuggestion, setPerformanceSuggestion] = useState('');
+      const [orgHealth, setOrgHealth] = useState({});
+      const [orgHealthSuggestion, setOrgHealthSuggestion] = useState('');
+      const [frequency, setFrequency] = useState('');
+      
+      // Generate org health questions once when component mounts
+      const [orgHealthQs] = useState(() => generateOrgHealthQuestions(data.pulseQuestions || []));
+      
+      const subject = data.employees.find(e => e.id === request.subjectId);
+      
+      // Get active pulse question ID if exists
+      const pulseQuestion = orgHealthQs.find(q => q.id === 'pulse');
+      
+      const submit = () => {
+        // Store which specific questions were asked for data analysis
+        const orgHealthQuestionsAsked = orgHealthQs.map(q => ({ id: q.id, question: q.question, pulseId: q.pulseId }));
+        const review = { 
+          id: generateId(), 
+          requestId: request.id, 
+          subjectId: request.subjectId, 
+          skillIds: request.skillIds, 
+          performance, 
+          performanceSuggestion, 
+          orgHealth,
+          pulseQuestionId: pulseQuestion?.pulseId || null, // Track which pulse this review answered
+          pulseScore: orgHealth.pulse || null, // Store pulse score separately for easy lookup
+          orgHealthQuestionsAsked,
+          orgHealthSuggestion, 
+          frequency, 
+          createdAt: new Date().toISOString() 
+        };
+        const updatedRequests = data.reviewRequests.map(r => r.id === request.id ? { ...r, status: 'completed' } : r);
+        const updated = { ...data, reviews: [...data.reviews, review], reviewRequests: updatedRequests };
+        setData(updated); saveData(updated); setView('requests');
+      };
+      
+      const RatingButtons = ({ value, onChange }) => (
+        <div className="flex gap-2">
+          {[1, 2, 3, 4, 5].map(n => <button key={n} onClick={() => onChange(n)} className={`rating-btn ${value === n ? 'selected' : ''}`}>{n}</button>)}
+        </div>
+      );
+      
+      return (
+        <div className="container" style={{ maxWidth: 700 }}>
+          <h1 className="page-title">Submit Review</h1>
+          <p className="page-desc">Reviewing: {subject?.name}</p>
+          
+          <div className="flex gap-2 mb-6">{[1, 2, 3].map(n => <div key={n} style={{ flex: 1, height: 4, borderRadius: 2, background: step >= n ? 'linear-gradient(90deg, #0d9488, #14b8a6)' : '#e2e8f0' }} />)}</div>
+          
+          <div className="card" style={{ padding: 32 }}>
+            {step === 1 && (
+              <div>
+                <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 24 }}>How often did you work together?</h2>
+                <div style={{ display: 'grid', gap: 12 }}>
+                  {['Daily', 'Weekly', 'Occasionally', 'One-time project'].map(opt => (
+                    <button key={opt} onClick={() => setFrequency(opt)} style={{ padding: 16, borderRadius: 10, border: frequency === opt ? '2px solid var(--teal-500)' : '1px solid var(--slate-200)', background: frequency === opt ? 'var(--teal-50)' : '#fff', textAlign: 'left', cursor: 'pointer', fontWeight: 500 }}>{opt}</button>
+                  ))}
+                </div>
+                <button className="btn btn-primary mt-4" style={{ width: '100%' }} disabled={!frequency} onClick={() => setStep(2)}>Continue</button>
+              </div>
+            )}
+            
+            {step === 2 && (
+              <div>
+                <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Performance Review</h2>
+                <p className="text-muted text-sm mb-6">Rate {subject?.name} (1 = Poor, 5 = Excellent)</p>
+                {performanceQuestions.map(q => (
+                  <div key={q.id} style={{ marginBottom: 24 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 6 }}>{q.label}</div>
+                    <div className="text-muted text-sm mb-3">{q.question}</div>
+                    <RatingButtons value={performance[q.id]} onChange={v => setPerformance({...performance, [q.id]: v})} />
+                  </div>
+                ))}
+                <div className="mb-6"><label className="label">Suggestions (optional, your name shown)</label><textarea className="input" rows={3} value={performanceSuggestion} onChange={e => setPerformanceSuggestion(e.target.value)} /></div>
+                <div className="flex gap-3">
+                  <button className="btn btn-secondary" onClick={() => setStep(1)}>Back</button>
+                  <button className="btn btn-primary" style={{ flex: 1 }} disabled={!performanceQuestions.every(q => performance[q.id])} onClick={() => setStep(3)}>Continue</button>
+                </div>
+              </div>
+            )}
+            
+            {step === 3 && (
+              <div>
+                <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Organization Health</h2>
+                <p className="text-muted text-sm mb-6">Anonymous (1 = Strongly Disagree, 5 = Strongly Agree)</p>
+                {orgHealthQs.map(q => (
+                  <div key={q.id} style={{ marginBottom: 24 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 13, color: 'var(--teal-600)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{q.label}</div>
+                    <div style={{ fontWeight: 500, marginBottom: 8 }}>{q.question}</div>
+                    <RatingButtons value={orgHealth[q.id]} onChange={v => setOrgHealth({...orgHealth, [q.id]: v})} />
+                  </div>
+                ))}
+                <div className="mb-6"><label className="label">Suggestions for company (optional, anonymous)</label><textarea className="input" rows={3} value={orgHealthSuggestion} onChange={e => setOrgHealthSuggestion(e.target.value)} /></div>
+                <div className="flex gap-3">
+                  <button className="btn btn-secondary" onClick={() => setStep(2)}>Back</button>
+                  <button className="btn btn-primary" style={{ flex: 1 }} disabled={!orgHealthQs.every(q => orgHealth[q.id])} onClick={submit}>Submit Review</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CAREER RECORD — readable at any review volume
+    //
+    // Design notes (see claude/reading-the-record.html for the full rationale):
+    //  · Dimensions are COMPARED as sorted bars with the number printed, not
+    //    traced around a helix. One accent hue — colour is not carrying identity.
+    //  · Trend uses a TRAILING 12-MONTH WINDOW, never a cumulative average.
+    //    A cumulative average converges (1/(n+1) per review) and stops moving,
+    //    which made the old braid least informative for long-tenure employees.
+    //  · Time is BUCKETED — quarters up to 6 years, then years. Fixed width
+    //    whether the record holds 12 reviews or 3,000.
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Reviewer relationship → colour. Validated for colour-vision deficiency
+    // (adjacent-pair ΔE ≥ 8 OKLab). Two of these sit under 3:1 on white, so the
+    // legend always prints the label and the count — colour is never load-bearing.
+    const REL_COLORS = {
+      'supervisor':  '#2a78d6',
+      'team-member': '#eb6834',
+      'subordinate': '#1baf7a',
+      'third-party': '#eda100',
+    };
+    const REL_LABELS = {
+      'supervisor':  'Supervisor',
+      'team-member': 'Team member',
+      'subordinate': 'Subordinate',
+      'third-party': 'Client / external',
+    };
+    const REL_ORDER = ['supervisor', 'team-member', 'subordinate', 'third-party'];
+
+    const ACCENT = '#0d9488';
+
+    const overallOf = (review) => {
+      const vals = performanceQuestions.map(q => review.performance?.[q.id]).filter(Boolean);
+      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+    };
+
+    const relationshipOf = (review, requests) => {
+      const req = (requests || []).find(r => r.id === review.requestId);
+      return req?.relationship || 'team-member';
+    };
+
+    const byDate = (reviews) =>
+      [...(reviews || [])].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+    const mean = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+    const MS_YEAR = 365.25 * 24 * 3600 * 1000;
+
+    // Mean of one dimension over the reviews falling in (at - months, at].
+    const windowMean = (reviews, key, at, months) => {
+      const from = at - (months / 12) * MS_YEAR;
+      const vals = reviews
+        .filter(r => { const t = new Date(r.createdAt).getTime(); return t > from && t <= at; })
+        .map(r => r.performance?.[key])
+        .filter(Boolean);
+      return mean(vals);
+    };
+
+    // ~28 samples of the trailing 12-month mean across the record's span.
+    const trailingSeries = (reviews, key) => {
+      if (reviews.length < 2) return [];
+      const t0 = new Date(reviews[0].createdAt).getTime();
+      const t1 = new Date(reviews[reviews.length - 1].createdAt).getTime();
+      if (t1 <= t0) return [];
+      const out = [];
+      let carry = null;
+      for (let i = 0; i <= 28; i++) {
+        const at = t0 + ((t1 - t0) * i) / 28;
+        const v = windowMean(reviews, key, at, 12);
+        if (v != null) carry = v;
+        if (carry != null) out.push(carry);
+      }
+      return out;
+    };
+
+    const Sparkline = ({ series, width = 108, height = 24, color = ACCENT }) => {
+      if (!series || series.length < 2) {
+        return <div style={{ width, height, display: 'flex', alignItems: 'center' }}>
+          <div style={{ height: 1, width: '100%', background: 'var(--slate-200)' }} />
+        </div>;
+      }
+      const n = series.length;
+      const x = i => (i / (n - 1)) * (width - 4) + 2;
+      const y = v => height - 2 - ((v - 1) / 4) * (height - 4);
+      const d = series.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+      return (
+        <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true" style={{ display: 'block' }}>
+          <path d={d} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" opacity="0.85" />
+          <circle cx={x(n - 1).toFixed(1)} cy={y(series[n - 1]).toFixed(1)} r="2.8" fill={color} stroke="#fff" strokeWidth="1.5" />
+        </svg>
+      );
+    };
+
+    // Sorted strongest → weakest. The answer to "what am I good at" is the top row.
+    const SCORE_GATE = 10;   // per-dimension numbers stay hidden below this many reviews
+
+    const DimensionRows = ({ reviews }) => {
+      const locked = reviews.length < SCORE_GATE;
+      if (!reviews.length) {
+        return (
+          <div style={{ padding: '28px 24px', color: 'var(--slate-500)', fontSize: 14 }}>
+            No completed reviews yet. Your first review starts the record.
+          </div>
+        );
+      }
+      const now = new Date(reviews[reviews.length - 1].createdAt).getTime();
+      const rows = performanceQuestions.map(q => {
+        const all = reviews.map(r => r.performance?.[q.id]).filter(Boolean);
+        const recent = windowMean(reviews, q.id, now, 12);
+        const prior = windowMean(reviews, q.id, now - MS_YEAR, 12);
+        return {
+          q,
+          value: mean(all) || 0,
+          series: trailingSeries(reviews, q.id),
+          delta: (recent != null && prior != null) ? recent - prior : null,
+        };
+      }).sort((a, b) => b.value - a.value);
+
+      return (
+        <div style={{ padding: '14px 24px 6px' }}>
+          {locked && (
+            <div className="text-sm text-muted" style={{ paddingBottom: 10 }}>
+              Scores unlock at {SCORE_GATE} reviews — {SCORE_GATE - reviews.length} to go. The record is building.
+            </div>
+          )}
+          {rows.map((row, i) => {
+            const pct = ((row.value - 1) / 4) * 100;
+            const d = row.delta;
+            const flat = d == null || Math.abs(d) < 0.05;
+            const dColor = flat ? 'var(--slate-400)' : d > 0 ? ACCENT : '#b42318';
+            const dText = d == null ? '—' : flat ? 'steady' : `${d > 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(2)}`;
+            return (
+              <div key={row.q.id} style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(96px,132px) 1fr 44px 108px 70px',
+                gap: 14, alignItems: 'center', padding: '9px 0',
+                borderBottom: i === rows.length - 1 ? 'none' : '1px solid var(--slate-100)',
+              }}>
+                <div style={{ fontSize: 14, color: 'var(--slate-700)' }}>{row.q.label}</div>
+                <div style={{ height: 12, background: 'var(--slate-100)', borderRadius: 2, overflow: 'hidden' }}>
+                  {!locked && <div style={{ width: `${pct.toFixed(1)}%`, height: '100%', background: ACCENT, borderRadius: '0 4px 4px 0', transition: 'width .35s ease' }} />}
+                </div>
+                <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 15, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: locked ? 'var(--slate-300)' : 'var(--slate-900)' }}>
+                  {locked ? '—' : row.value.toFixed(2)}
+                </div>
+                {locked ? <div /> : <Sparkline series={row.series} />}
+                <div title="trailing 12 months vs the 12 months before"
+                  style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11.5, textAlign: 'right', color: locked ? 'var(--slate-300)' : dColor }}>
+                  {locked ? '' : dText}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    };
+
+    // Buckets by quarter up to a 6-year span, then by year. Never overflows.
+    const VolumeStrip = ({ reviews }) => {
+      if (!reviews.length) {
+        return <div style={{ fontSize: 13, color: 'var(--slate-400)' }}>Nothing recorded yet.</div>;
+      }
+      const first = new Date(reviews[0].createdAt);
+      const last = new Date(reviews[reviews.length - 1].createdAt);
+      const qIndex = d => d.getFullYear() * 4 + Math.floor(d.getMonth() / 3);
+      const spanQ = qIndex(last) - qIndex(first) + 1;
+      const useYears = spanQ > 32;   // quarters up to an 8-year span, then years
+
+      const keyOf = d => useYears ? d.getFullYear() : qIndex(d);
+      const startKey = keyOf(first), endKey = keyOf(last);
+      const counts = {};
+      reviews.forEach(r => { const k = keyOf(new Date(r.createdAt)); counts[k] = (counts[k] || 0) + 1; });
+
+      const buckets = [];
+      for (let k = startKey; k <= endKey; k++) {
+        const label = useYears ? String(k) : `${Math.floor(k / 4)} Q${(k % 4) + 1}`;
+        buckets.push({ k, label, n: counts[k] || 0 });
+      }
+      const max = Math.max(1, ...buckets.map(b => b.n));
+
+      return (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 52 }}>
+            {buckets.map(b => (
+              <div key={b.k}
+                title={`${b.label} · ${b.n} review${b.n === 1 ? '' : 's'}`}
+                style={{
+                  flex: '1 1 0', minWidth: 2,
+                  height: b.n ? Math.max(3, (b.n / max) * 52) : 2,
+                  background: ACCENT, opacity: b.n ? 0.85 : 0.2,
+                  borderRadius: '2px 2px 0 0',
+                }} />
+            ))}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 7, fontSize: 11, color: 'var(--slate-400)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
+            <span>{buckets[0].label}</span>
+            <span>{buckets.length} {useYears ? 'YEARS' : 'QUARTERS'}</span>
+            <span>{buckets[buckets.length - 1].label}</span>
+          </div>
+        </div>
+      );
+    };
+
+    // The credibility signal: a record reviewed only by one's own manager is a
+    // different thing from one reviewed from every direction.
+    const ReviewerMix = ({ reviews, requests }) => {
+      if (!reviews.length) {
+        return <div style={{ fontSize: 13, color: 'var(--slate-400)' }}>No reviewers yet.</div>;
+      }
+      const counts = {};
+      REL_ORDER.forEach(k => { counts[k] = 0; });
+      reviews.forEach(r => { const rel = relationshipOf(r, requests); counts[rel] = (counts[rel] || 0) + 1; });
+      const total = reviews.length;
+      return (
+        <div>
+          <div style={{ display: 'flex', height: 16, gap: 2, marginBottom: 12 }}>
+            {REL_ORDER.filter(k => counts[k] > 0).map(k => (
+              <div key={k} style={{ flex: counts[k], background: REL_COLORS[k], borderRadius: 2 }} />
+            ))}
+          </div>
+          <div style={{ display: 'grid', gap: 5 }}>
+            {REL_ORDER.map(k => (
+              <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--slate-600)' }}>
+                <span style={{ width: 9, height: 9, borderRadius: 2, background: REL_COLORS[k], flex: '0 0 auto' }} />
+                {REL_LABELS[k]}
+                <span style={{ marginLeft: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', color: 'var(--slate-800)', fontVariantNumeric: 'tabular-nums' }}>
+                  {counts[k]} · {Math.round((counts[k] / total) * 100)}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    };
+
+    // The helix, demoted from chart to mark. Fixed geometry — it identifies the
+    // record, it does not measure it. Tick ring counts verified reviews.
+    const HelixMark = ({ reviews, size = 56 }) => {
+      const ref = React.useRef(null);
+      useEffect(() => {
+        const cv = ref.current;
+        if (!cv) return;
+        const dpr = window.devicePixelRatio || 1;
+        cv.width = Math.round(size * dpr);
+        cv.height = Math.round(size * dpr);
+        const ctx = cv.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, size, size);
+
+        const TAU = Math.PI * 2;
+        const n = reviews.length;
+        const cx = size / 2, cy = size / 2;
+        const R = size * 0.31, A = size * 0.055, loops = 7;
+
+        const segs = [];
+        const steps = 200;
+        for (let s = 0; s < steps; s++) {
+          const t0 = s / steps, t1 = (s + 1) / steps;
+          const a0 = t0 * TAU - Math.PI / 2, a1 = t1 * TAU - Math.PI / 2;
+          for (let band = 0; band < 2; band++) {
+            const sg = band ? -1 : 1;
+            const r0 = R + sg * A * Math.sin(a0 * loops);
+            const r1 = R + sg * A * Math.sin(a1 * loops);
+            segs.push({
+              x0: cx + r0 * Math.cos(a0), y0: cy + r0 * Math.sin(a0),
+              x1: cx + r1 * Math.cos(a1), y1: cy + r1 * Math.sin(a1),
+              z: sg * Math.sin(a0 * loops),
+              c: band ? '#22d3ee' : ACCENT,
+            });
+          }
+        }
+        segs.sort((a, b) => a.z - b.z);
+        segs.forEach(g => {
+          const d = (g.z + 1) / 2;
+          ctx.save();
+          ctx.strokeStyle = n ? g.c : '#cbd5e1';
+          ctx.globalAlpha = n ? (0.35 + 0.65 * d) : 0.5;
+          ctx.lineWidth = Math.max(0.7, size * (0.005 + 0.010 * d));
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(g.x0, g.y0);
+          ctx.lineTo(g.x1, g.y1);
+          ctx.stroke();
+          ctx.restore();
+        });
+
+        const ticks = Math.min(48, n);
+        for (let i = 0; i < ticks; i++) {
+          const a = -Math.PI / 2 + (i / 48) * TAU;
+          const r0 = size * 0.41, r1 = size * 0.46;
+          ctx.save();
+          ctx.strokeStyle = ACCENT;
+          ctx.globalAlpha = 0.8;
+          ctx.lineWidth = Math.max(0.9, size * 0.014);
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(cx + r0 * Math.cos(a), cy + r0 * Math.sin(a));
+          ctx.lineTo(cx + r1 * Math.cos(a), cy + r1 * Math.sin(a));
+          ctx.stroke();
+          ctx.restore();
+        }
+      }, [reviews, size]);
+
+      return <canvas ref={ref} style={{ width: size, height: size, display: 'block', flex: '0 0 auto' }}
+        title={`${reviews.length} verified review${reviews.length === 1 ? '' : 's'}`} />;
+    };
+
+    // Identifier derived from the record itself — changes when the record changes.
+    const recordIdOf = (reviews, requests) => {
+      if (!reviews.length) return 'GA·— — —';
+      let seed = 0;
+      reviews.forEach(r => {
+        const rel = relationshipOf(r, requests);
+        seed = (seed * 31 + Math.round(overallOf(r) * 10) + rel.charCodeAt(0)) % 16777216;
+      });
+      let hx = seed.toString(16).toUpperCase();
+      while (hx.length < 6) hx = '0' + hx;
+      return `GA·${hx.slice(0, 3)}-${hx.slice(3, 6)}-${reviews.length.toString(16).toUpperCase()}`;
+    };
+
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MY PROFILE
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const MyProfile = ({ data, currentUser }) => {
+      const myReviews = data.reviews.filter(r => r.subjectId === currentUser?.id);
+      const sortedReviews = byDate(myReviews);
+      const reviewCount = myReviews.length;
+      const role = data.roles.find(r => r.id === currentUser?.roleId);
+      
+      const avgScores = {};
+      if (myReviews.length > 0) {
+        performanceQuestions.forEach(q => {
+          const scores = myReviews.map(r => r.performance[q.id]).filter(Boolean);
+          avgScores[q.id] = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : null;
+        });
+      }
+      
+      const overallAvg = Object.values(avgScores).filter(Boolean).length > 0 ? (Object.values(avgScores).filter(Boolean).reduce((a, b) => parseFloat(a) + parseFloat(b), 0) / Object.values(avgScores).filter(Boolean).length).toFixed(1) : null;
+      
+      const skillReviews = {};
+      myReviews.forEach(r => r.skillIds.forEach(skillId => { skillReviews[skillId] = (skillReviews[skillId] || 0) + 1; }));
+      
+      const getTier = (count) => {
+        if (count >= 10) return { label: 'Verified', class: 'badge-green' };
+        if (count >= 6) return { label: 'Established', class: 'badge-teal' };
+        if (count >= 3) return { label: 'Developing', class: 'badge-yellow' };
+        return { label: 'Building', class: 'badge-gray' };
+      };
+      const tier = getTier(reviewCount);
+      
+      return (
+        <div className="container" style={{ maxWidth: 800 }}>
+          <h1 className="page-title">My Profile</h1>
+          
+          <div className="card" style={{ marginBottom: 24, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap', padding: '20px 24px', borderBottom: '1px solid var(--slate-100)' }}>
+              <HelixMark reviews={sortedReviews} size={56} />
+              <div style={{ flex: 1, minWidth: 190 }}>
+                <div style={{ fontSize: 19, fontWeight: 700, color: 'var(--slate-900)' }}>{currentUser?.name}</div>
+                <div style={{ fontSize: 14, color: 'var(--slate-500)' }}>{role?.name || 'No role assigned'}</div>
+                <div className="flex flex-wrap" style={{ gap: 6, marginTop: 9 }}>
+                  <span className={`badge ${tier.class}`}>{tier.label}</span>
+                  <span className="badge badge-gray">{reviewCount} review{reviewCount === 1 ? '' : 's'}</span>
+                  {sortedReviews.length > 0 && (
+                    <span className="badge badge-gray">
+                      {new Date(sortedReviews[0].createdAt).getFullYear()} – {new Date(sortedReviews[sortedReviews.length - 1].createdAt).getFullYear()}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 40, fontWeight: 800, lineHeight: 1, color: reviewCount >= 10 ? 'var(--slate-900)' : 'var(--slate-300)', fontVariantNumeric: 'tabular-nums' }}>
+                  {reviewCount >= 10 ? (overallAvg || '—') : '—'}
+                </div>
+                <div style={{ fontSize: 11, letterSpacing: '0.1em', color: 'var(--slate-400)', marginTop: 6, textTransform: 'uppercase' }}>
+                  {reviewCount >= 10 ? 'Overall' : `Locked · ${reviewCount}/10`}
+                </div>
+                {reviewCount < 10 && (
+                  <div className="progress-bar" style={{ width: 110, marginTop: 8 }}>
+                    <div className="progress-fill" style={{ width: `${Math.min(100, reviewCount * 10)}%` }} />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <DimensionRows reviews={sortedReviews} />
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 1.35fr) minmax(200px, 1fr)', borderTop: '1px solid var(--slate-100)' }}>
+              <div style={{ padding: '16px 24px 18px' }}>
+                <div className="category-header" style={{ marginBottom: 12 }}>Reviews over time</div>
+                <VolumeStrip reviews={sortedReviews} />
+              </div>
+              <div style={{ padding: '16px 24px 18px', borderLeft: '1px solid var(--slate-100)' }}>
+                <div className="category-header" style={{ marginBottom: 12 }}>Who reviewed</div>
+                <ReviewerMix reviews={sortedReviews} requests={data.reviewRequests} />
+              </div>
+            </div>
+
+            <div style={{ padding: '12px 24px 16px', borderTop: '1px solid var(--slate-100)', display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 10 }}>
+              <span className="text-xs text-muted" style={{ letterSpacing: '0.1em', textTransform: 'uppercase' }}>Record ID</span>
+              <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 14, letterSpacing: '0.06em', color: 'var(--teal-600)' }}>
+                {recordIdOf(sortedReviews, data.reviewRequests)}
+              </span>
+              <span className="text-xs text-muted">changes whenever the record changes</span>
+            </div>
+          </div>
+          
+          
+          <div className="card" style={{ padding: 24 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Skills</h2>
+            {Object.keys(skillReviews).length === 0 ? (
+              <p className="text-muted">No skills verified yet. Request a review to start building your profile.</p>
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                {Object.entries(skillReviews).map(([skillId, count]) => {
+                  const skill = data.skills.find(s => s.id === skillId);
+                  const skillTier = getTier(count);
+                  return (
+                    <div key={skillId} style={{ padding: '12px 16px', background: 'var(--slate-50)', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <span style={{ fontWeight: 600 }}>{skill?.name}</span>
+                      <span className={`badge ${skillTier.class}`}>{count} reviews</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EMPLOYEE DETAIL
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const EmployeeDetail = ({ data, employee, setView }) => {
+      const reviews = data.reviews.filter(r => r.subjectId === employee.id);
+      const role = data.roles.find(r => r.id === employee.roleId);
+      const reviewCount = reviews.length;
+      
+      const avgScores = {};
+      if (reviews.length > 0) {
+        performanceQuestions.forEach(q => {
+          const scores = reviews.map(r => r.performance[q.id]).filter(Boolean);
+          avgScores[q.id] = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : null;
+        });
+      }
+      
+      const getTier = (count) => {
+        if (count >= 10) return { label: 'Verified', class: 'badge-green' };
+        if (count >= 6) return { label: 'Established', class: 'badge-teal' };
+        if (count >= 3) return { label: 'Developing', class: 'badge-yellow' };
+        return { label: 'Building', class: 'badge-gray' };
+      };
+      const tier = getTier(reviewCount);
+      
+      return (
+        <div className="container" style={{ maxWidth: 800 }}>
+          <button className="btn btn-secondary btn-sm mb-4" onClick={() => setView('employees')}>← Back</button>
+          
+          <div className="card" style={{ padding: 32, marginBottom: 24 }}>
+            <div className="flex gap-4 items-center">
+              <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'linear-gradient(135deg, var(--teal-500), var(--teal-400))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 28, fontWeight: 700 }}>{employee.name.charAt(0)}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>{employee.name}</div>
+                <div className="text-muted">{role?.name || 'No role'}</div>
+                <div className="text-muted text-sm">{employee.email}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span className={`badge ${tier.class}`}>{tier.label}</span>
+                <div className="text-muted text-sm mt-4">{reviewCount} reviews</div>
+              </div>
+            </div>
+          </div>
+          
+          {reviewCount >= 10 && (
+            <div className="card" style={{ padding: 24 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Performance</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16 }}>
+                {performanceQuestions.map(q => (
+                  <div key={q.id} style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 28, fontWeight: 700, marginBottom: 4 }}>{avgScores[q.id] || '—'}</div>
+                    <div className="text-muted text-sm">{q.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {reviewCount < 10 && (
+            <div className="card" style={{ padding: 32, textAlign: 'center' }}>
+              <p className="text-muted">Scores visible after 10 reviews</p>
+              <div className="progress-bar" style={{ width: 200, margin: '16px auto 0' }}><div className="progress-fill" style={{ width: `${reviewCount * 10}%` }} /></div>
+              <p className="text-sm text-muted mt-2">{reviewCount} of 10</p>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RESET
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const DataControls = ({ onReset, onImport }) => {
+      const [confirm, setConfirm] = useState(false);
+      const fileInputRef = React.useRef(null);
+      
+      const exportData = () => {
+        const data = localStorage.getItem(STORAGE_KEY);
+        if (!data) return alert('No data to export');
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `glassant-backup-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+      
+      const importData = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const imported = JSON.parse(ev.target.result);
+            if (imported.organization && imported.employees) {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(imported));
+              onImport(imported);
+              alert('Data imported successfully!');
+            } else {
+              alert('Invalid backup file format');
+            }
+          } catch (err) {
+            alert('Error reading file: ' + err.message);
+          }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+      };
+      
+      if (confirm) return (
+        <div style={{ position: 'fixed', bottom: 24, right: 24, display: 'flex', gap: 8 }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => setConfirm(false)}>Cancel</button>
+          <button className="btn btn-danger btn-sm" onClick={onReset}>Confirm Reset</button>
+        </div>
+      );
+      
+      return (
+        <div style={{ position: 'fixed', bottom: 24, right: 24, display: 'flex', gap: 8 }}>
+          <input type="file" ref={fileInputRef} accept=".json" style={{ display: 'none' }} onChange={importData} />
+          <button className="btn btn-secondary btn-sm" onClick={exportData} title="Download backup">📥 Export</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => fileInputRef.current?.click()} title="Load backup">📤 Import</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setConfirm(true)} title="Clear all data">🗑️ Reset</button>
+        </div>
+      );
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MAIN APP
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function App() {
+      const [data, setData] = useState(loadData);
+      const [view, setView] = useState('dashboard');
+      const [selectedEmployee, setSelectedEmployee] = useState(null);
+      const [selectedRequest, setSelectedRequest] = useState(null);
+      
+      const currentUser = data.employees.find(e => e.isAdmin) || data.employees[0];
+      const reset = () => { localStorage.removeItem(STORAGE_KEY); setData(defaultData); setView('dashboard'); };
+      
+      if (!data.organization) return <SetupWizard onComplete={(d) => { setData(d); setView('dashboard'); }} />;
+      
+      return (
+        <div style={{ minHeight: '100vh' }}>
+          <Navigation view={view} setView={setView} data={data} />
+          {view === 'dashboard' && <Dashboard data={data} setView={setView} />}
+          {view === 'employees' && <Employees data={data} setData={setData} setView={setView} setSelectedEmployee={setSelectedEmployee} />}
+          {view === 'add-employee' && <AddEmployee data={data} setData={setData} setView={setView} />}
+          {view === 'employee-detail' && selectedEmployee && <EmployeeDetail data={data} employee={selectedEmployee} setView={setView} />}
+          {view === 'roles' && <Roles data={data} setData={setData} />}
+          {view === 'skills' && <SkillsManagement data={data} setData={setData} />}
+          {view === 'projects' && <Projects data={data} setData={setData} />}
+          {view === 'requests' && <ReviewRequests data={data} setData={setData} setView={setView} setSelectedRequest={setSelectedRequest} />}
+          {view === 'request-review' && <RequestReview data={data} setData={setData} setView={setView} currentUser={currentUser} />}
+          {view === 'submit-review' && selectedRequest && <SubmitReview data={data} setData={setData} setView={setView} request={selectedRequest} />}
+          {view === 'employer-settings' && <EmployerSettings data={data} setData={setData} />}
+          {view === 'my-profile' && <MyProfile data={data} currentUser={currentUser} />}
+          <DataControls onReset={reset} onImport={setData} />
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
