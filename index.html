@@ -153,6 +153,18 @@
       skills: [],
       projects: [],
       pulseQuestions: [], // { id, question, startDate, endDate, status: 'active'|'closed' }
+      // Positions the PERSON owns, across employers. The employer provisions one
+      // of them; the rest travel with the person.
+      // { id, personId, company, title, startDate:'YYYY-MM', endDate:'YYYY-MM'|null,
+      //   source:'employer'|'self', carriedReviews, carriedScore }
+      employments: [],
+      // SEATS on this employer's org chart. Three layers, not two: a JOB is the
+      // definition (stored in `roles` for backwards compatibility — same ids), a
+      // POSITION is one seat with exactly one parent, and a PERSON occupies a
+      // position. The employer draws positions freely; nothing about a person is
+      // stored until they accept.
+      // { id, jobId, parentId: id|null, note }
+      positions: [],
       reviewRequests: [],
       reviews: [],
     };
@@ -166,7 +178,7 @@
         if (parsed.roles) {
           parsed.roles = parsed.roles.map(r => ({ ...r, skillIds: [...new Set(r.skillIds || [])] }));
         }
-        return parsed;
+        return migrateToPositions(parsed);
       } catch {
         return defaultData;
       }
@@ -174,6 +186,21 @@
     
     const saveData = (data) => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    };
+
+    // Existing orgs stored a flat employee.roleId. Give every one of those a
+    // position so the chart has something to draw, then let the admin arrange
+    // the reporting lines. Idempotent.
+    const migrateToPositions = (d) => {
+      if (!d.positions) d.positions = [];
+      (d.employees || []).forEach(e => {
+        if (e.positionId && d.positions.some(p => p.id === e.positionId)) return;
+        if (!e.roleId) return;
+        const pos = { id: 'pos_' + e.id, jobId: e.roleId, parentId: null, note: '' };
+        d.positions.push(pos);
+        e.positionId = pos.id;
+      });
+      return d;
     };
     
     const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -300,6 +327,147 @@
         questions.push({ id: 'pulse', label: 'Pulse', question: activePulse.question, pulseId: activePulse.id });
       }
       return questions;
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SUPPRESSION ENGINE
+    //
+    // Every employer-facing view of review data goes through `slice()`. Nothing
+    // reads `data.reviews` directly to build a report — the floor is a property
+    // of the QUERY, not of each screen, because each cut can clear the floor on
+    // its own while three stacked cuts isolate one person.
+    //
+    // Standing assumption: the employer defined the mesh, so it always knows WHO
+    // WAS ASKED. These rules govern only whether it can attribute ANSWERS. The UI
+    // must never claim more than that.
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Minimum responses before a cohort's detail is released, by the reviewer's
+    // relationship to the subject. A manager reviewing their own report is an
+    // ordinary performance review — no anonymity was promised and none is given.
+    // Upward review is where being identified costs someone their job, so it
+    // carries the highest floor. TUNABLE — these are opening defaults.
+    const ANON_FLOOR = {
+      'supervisor':  0,   // reviewer is the subject's manager — attributed
+      'team-member': 3,   // peer
+      'subordinate': 4,   // reviewer reports to the subject — upward
+      'third-party': 3,   // client / external
+    };
+    const DEFAULT_FLOOR = 3;
+    const floorFor = (rel) => (ANON_FLOOR[rel] !== undefined ? ANON_FLOOR[rel] : DEFAULT_FLOOR);
+    // A cohort with floor 0 is attributed by design. It can never be used as
+    // cover, because the employer already knows what is in it.
+    const isAttributed = (rel) => floorFor(rel) === 0;
+
+    // Filters are applied as an INTERSECTION before anything is grouped.
+    const applyFilters = (reviews, requests, f) => {
+      f = f || {};
+      return reviews.filter(r => {
+        if (f.relationship && relationshipOf(r, requests) !== f.relationship) return false;
+        if (f.projectId) {
+          const req = (requests || []).find(x => x.id === r.requestId);
+          if (!req || req.projectId !== f.projectId) return false;
+        }
+        if (f.skillId && !(r.skillIds || []).includes(f.skillId)) return false;
+        if (f.frequency && r.frequency !== f.frequency) return false;
+        const t = new Date(r.createdAt).getTime();
+        if (f.from && t < new Date(f.from).getTime()) return false;
+        if (f.to && t > new Date(f.to).getTime()) return false;
+        return true;
+      });
+    };
+
+    const scoresOf = (reviews, dimension) => {
+      const out = [];
+      reviews.forEach(r => {
+        if (dimension) { if (r.performance && r.performance[dimension]) out.push(r.performance[dimension]); }
+        else performanceQuestions.forEach(q => { if (r.performance && r.performance[q.id]) out.push(r.performance[q.id]); });
+      });
+      return out;
+    };
+
+    // The single entry point.
+    //   slice(data, subjectId, { filters, groupBy, dimension })
+    // groupBy: 'relationship' (default) | 'exposure' | null
+    // Returns cohorts each carrying an explicit `released` flag and a reason.
+    // A withheld cohort is still LISTED — silently dropping a row invites the
+    // exact subtraction it is meant to prevent.
+    const slice = (data, subjectId, opts) => {
+      opts = opts || {};
+      const requests = data.reviewRequests || [];
+      const all = (data.reviews || []).filter(r => r.subjectId === subjectId);
+      const rows = applyFilters(all, requests, opts.filters);
+      const dim = opts.dimension || null;
+      const groupBy = opts.groupBy === undefined ? 'relationship' : opts.groupBy;
+
+      const mk = (key, label, rel, list) => {
+        const vals = scoresOf(list, dim);
+        return {
+          key, label, rel, n: list.length, reviews: list, values: vals,
+          mean: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null,
+          histogram: [1, 2, 3, 4, 5].map(v => vals.filter(x => x === v).length),
+          released: true, reason: null,
+        };
+      };
+
+      let cohorts;
+      if (groupBy === 'relationship') {
+        cohorts = REL_ORDER.map(rel =>
+          mk(rel, REL_LABELS[rel], rel, rows.filter(r => relationshipOf(r, requests) === rel))
+        ).filter(c => c.n > 0);
+      } else if (groupBy === 'exposure') {
+        // Exposure, not rank — how much this reviewer could actually have seen.
+        const buckets = ['Daily', 'Weekly', 'Occasionally', 'One-time project'];
+        cohorts = buckets.map(b => {
+          const list = rows.filter(r => r.frequency === b);
+          const c = mk(b, b, null, list);
+          // An exposure bucket mixes directions, so it takes the strictest floor
+          // of the directions actually inside it.
+          const rels = [...new Set(list.map(r => relationshipOf(r, requests)))];
+          c.rel = null;
+          c.floorOverride = rels.length ? Math.max.apply(null, rels.map(floorFor)) : DEFAULT_FLOOR;
+          return c;
+        }).filter(c => c.n > 0);
+      } else {
+        cohorts = [mk('all', 'All reviews', null, rows)];
+      }
+
+      const total = mk('total', 'All reviews', null, rows);
+
+      // 1 ─ per-cohort floor
+      cohorts.forEach(c => {
+        const fl = c.floorOverride !== undefined ? c.floorOverride : floorFor(c.rel);
+        if (c.n < fl) { c.released = false; c.reason = `withheld · ${c.n} of ${fl} needed`; }
+      });
+
+      // 2 ─ complementary suppression. If exactly one cohort is withheld, the
+      //     total minus the released ones gives it back. Withhold a second
+      //     cohort — the smallest one that is not attributed by design — or, if
+      //     there is no such cohort to spend, withhold the total instead.
+      let withheld = cohorts.filter(c => !c.released);
+      let totalReleased = total.n >= DEFAULT_FLOOR;
+      if (withheld.length === 1 && totalReleased) {
+        // The attack needs the total: total minus the released cohorts gives the
+        // withheld one back. Dropping the total costs less information than
+        // burning a second cohort, so that is the cut we make.
+        totalReleased = false;
+        total.suppressedForCover = true;
+      }
+      total.released = totalReleased;
+      if (!totalReleased) total.reason = total.suppressedForCover
+        ? 'withheld so a smaller group cannot be recovered by subtraction'
+        : `withheld · ${total.n} of ${DEFAULT_FLOOR} needed`;
+
+      // 3 ─ stacked filters. Narrowing the query cannot be used to walk below the
+      //     floor: if the filtered set as a whole is too small, nothing is shown.
+      const narrowed = !!(opts.filters && Object.keys(opts.filters).some(k => opts.filters[k]));
+      if (narrowed && total.n < DEFAULT_FLOOR) {
+        cohorts.forEach(c => { c.released = false; c.reason = 'withheld · filtered set too small'; });
+        total.released = false;
+        total.reason = 'withheld · filtered set too small';
+      }
+
+      return { total, cohorts, anyWithheld: cohorts.some(c => !c.released) || !total.released };
     };
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -610,7 +778,8 @@
             <div className="nav-links">
               <button className={`nav-link ${view === 'dashboard' ? 'active' : ''}`} onClick={() => setView('dashboard')}>Dashboard</button>
               <button className={`nav-link ${view === 'employees' ? 'active' : ''}`} onClick={() => setView('employees')}>Employees</button>
-              <button className={`nav-link ${view === 'roles' ? 'active' : ''}`} onClick={() => setView('roles')}>Roles</button>
+              <button className={`nav-link ${view === 'roles' ? 'active' : ''}`} onClick={() => setView('roles')}>Jobs</button>
+              <button className={`nav-link ${view === 'orgchart' ? 'active' : ''}`} onClick={() => setView('orgchart')}>Org Chart</button>
               <button className={`nav-link ${view === 'skills' ? 'active' : ''}`} onClick={() => setView('skills')}>Skills</button>
               <button className={`nav-link ${view === 'projects' ? 'active' : ''}`} onClick={() => setView('projects')}>Projects</button>
               <button className={`nav-link ${view === 'requests' ? 'active' : ''}`} onClick={() => setView('requests')}>
@@ -991,6 +1160,254 @@
                 <div className="flex gap-3">
                   <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
                   <button className="btn btn-primary" style={{ flex: 1 }} disabled={!newRole.name} onClick={saveRole}>{editingRole ? 'Save' : 'Add Role'}</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ORG CHART — jobs, positions, and the mesh derived from them
+    //
+    // The chart's job is NOT to weight reviews. Rank buys no influence here; the
+    // weighting variable is exposure (contact frequency and work period, both
+    // already collected at review time). What the chart decides is who gets
+    // ASKED, and the DIRECTION each review comes from — which is what drives the
+    // anonymity floors in the suppression engine.
+    //
+    // It also gives the mesh a shape that survives a reorg: reviewers are defined
+    // by seat, not by person, so moving someone rewires their mesh for free.
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    const jobOf = (data, positionId) => {
+      const pos = (data.positions || []).find(p => p.id === positionId);
+      return pos ? (data.roles || []).find(r => r.id === pos.jobId) : null;
+    };
+    const occupantsOf = (data, positionId) =>
+      (data.employees || []).filter(e => e.positionId === positionId);
+    const childrenOf = (data, positionId) =>
+      (data.positions || []).filter(p => p.parentId === positionId);
+
+    // Every descendant of a position — used to stop the parent dropdown creating
+    // a cycle.
+    const descendantsOf = (data, positionId) => {
+      const out = [];
+      const walk = (id) => childrenOf(data, id).forEach(c => { out.push(c.id); walk(c.id); });
+      walk(positionId);
+      return out;
+    };
+
+    // Manager = whoever holds the parent seat. Peers = siblings under the same
+    // parent. Reports = the seats directly below. That is the whole mesh.
+    const meshFor = (data, positionId) => {
+      const pos = (data.positions || []).find(p => p.id === positionId);
+      if (!pos) return { manager: [], peers: [], reports: [] };
+      return {
+        manager: pos.parentId ? occupantsOf(data, pos.parentId) : [],
+        peers: (data.positions || [])
+          .filter(p => p.parentId === pos.parentId && p.id !== pos.id)
+          .flatMap(p => occupantsOf(data, p.id)),
+        reports: childrenOf(data, pos.id).flatMap(p => occupantsOf(data, p.id)),
+      };
+    };
+
+    const OrgChart = ({ data, setData }) => {
+      const [selected, setSelected] = useState(null);
+      const [showAdd, setShowAdd] = useState(null); // parentId | 'root'
+      const [form, setForm] = useState({ jobId: '', note: '' });
+
+      const positions = data.positions || [];
+      const roots = positions.filter(p => !p.parentId);
+      const unseated = (data.employees || []).filter(e => !e.positionId);
+
+      const commit = (updated) => { setData(updated); saveData(updated); };
+
+      const addPosition = () => {
+        if (!form.jobId) return;
+        const pos = { id: generateId(), jobId: form.jobId, note: form.note,
+          parentId: showAdd === 'root' ? null : showAdd };
+        commit({ ...data, positions: [...positions, pos] });
+        setForm({ jobId: '', note: '' }); setShowAdd(null);
+      };
+
+      const setParent = (posId, parentId) => {
+        commit({ ...data, positions: positions.map(p =>
+          p.id === posId ? { ...p, parentId: parentId || null } : p) });
+      };
+
+      const assign = (posId, employeeId) => {
+        commit({ ...data, employees: (data.employees || []).map(e => {
+          if (e.id === employeeId) {
+            const job = positions.find(p => p.id === posId);
+            return { ...e, positionId: posId, roleId: job ? job.jobId : e.roleId };
+          }
+          // one seat, one occupant
+          return e.positionId === posId ? { ...e, positionId: null } : e;
+        }) });
+      };
+
+      const vacate = (posId) => {
+        commit({ ...data, employees: (data.employees || []).map(e =>
+          e.positionId === posId ? { ...e, positionId: null } : e) });
+      };
+
+      const removePosition = (posId) => {
+        if (childrenOf(data, posId).length) { alert('Move or delete the seats below this one first.'); return; }
+        commit({
+          ...data,
+          positions: positions.filter(p => p.id !== posId),
+          employees: (data.employees || []).map(e => e.positionId === posId ? { ...e, positionId: null } : e),
+        });
+        if (selected === posId) setSelected(null);
+      };
+
+      const Node = ({ pos, depth }) => {
+        const job = (data.roles || []).find(r => r.id === pos.jobId);
+        const people = occupantsOf(data, pos.id);
+        const kids = childrenOf(data, pos.id);
+        const isSel = selected === pos.id;
+        return (
+          <div style={{ marginLeft: depth ? 26 : 0, borderLeft: depth ? '1px solid var(--slate-200)' : 'none', paddingLeft: depth ? 14 : 0 }}>
+            <div
+              onClick={() => setSelected(isSel ? null : pos.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', marginBottom: 8,
+                background: isSel ? 'var(--teal-50)' : '#fff', cursor: 'pointer',
+                border: isSel ? '2px solid var(--teal-400)' : '1px solid var(--slate-200)', borderRadius: 8,
+              }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{job ? job.name : 'Unknown job'}</div>
+                <div className="text-sm" style={{ color: people.length ? 'var(--slate-600)' : 'var(--slate-400)' }}>
+                  {people.length ? people.map(p => p.name).join(', ') : 'Vacant'}
+                </div>
+              </div>
+              {kids.length > 0 && <span className="badge badge-gray">{kids.length} below</span>}
+              <button className="btn btn-secondary btn-xs" onClick={e => { e.stopPropagation(); setShowAdd(pos.id); }}>+ Seat below</button>
+            </div>
+            {kids.map(k => <Node key={k.id} pos={k} depth={depth + 1} />)}
+          </div>
+        );
+      };
+
+      const sel = positions.find(p => p.id === selected);
+      const mesh = sel ? meshFor(data, sel.id) : null;
+
+      return (
+        <div className="container">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h1 className="page-title">Org Chart</h1>
+              <p className="page-desc" style={{ marginBottom: 0 }}>
+                {positions.length} seat{positions.length === 1 ? '' : 's'} · the review mesh is derived from this
+              </p>
+            </div>
+            <button className="btn btn-primary" onClick={() => setShowAdd('root')}>+ Add top-level seat</button>
+          </div>
+
+          {(data.roles || []).length === 0 && (
+            <div className="card" style={{ padding: 24, marginBottom: 20 }}>
+              <p className="text-muted">Define some jobs first — a seat is an instance of a job.</p>
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1.6fr) minmax(260px, 1fr)', gap: 24, alignItems: 'start' }}>
+            <div>
+              {roots.length === 0 ? (
+                <div className="card empty-state"><p>No seats yet. Add a top-level seat to start the chart.</p></div>
+              ) : roots.map(r => <Node key={r.id} pos={r} depth={0} />)}
+
+              {unseated.length > 0 && (
+                <div className="card" style={{ padding: 16, marginTop: 16 }}>
+                  <div className="category-header" style={{ marginBottom: 8 }}>Not yet seated</div>
+                  <div className="flex flex-wrap gap-2">
+                    {unseated.map(e => <span key={e.id} className="badge badge-yellow">{e.name}</span>)}
+                  </div>
+                  <p className="text-xs text-muted mt-2">Select a seat to assign one of them.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="card" style={{ padding: 20 }}>
+              {!sel ? (
+                <div className="text-muted text-sm">
+                  Select a seat to see the review mesh it produces, assign someone, or move it.
+                </div>
+              ) : (
+                <div>
+                  <div className="category-header" style={{ marginBottom: 6 }}>Selected seat</div>
+                  <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>
+                    {(data.roles || []).find(r => r.id === sel.jobId)?.name || 'Unknown job'}
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="label">Occupant</label>
+                    <select className="input" value={occupantsOf(data, sel.id)[0]?.id || ''}
+                      onChange={e => e.target.value ? assign(sel.id, e.target.value) : vacate(sel.id)}>
+                      <option value="">Vacant</option>
+                      {(data.employees || []).map(emp => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="label">Reports to</label>
+                    <select className="input" value={sel.parentId || ''} onChange={e => setParent(sel.id, e.target.value)}>
+                      <option value="">Nobody (top level)</option>
+                      {positions
+                        .filter(p => p.id !== sel.id && !descendantsOf(data, sel.id).includes(p.id))
+                        .map(p => {
+                          const j = (data.roles || []).find(r => r.id === p.jobId);
+                          const who = occupantsOf(data, p.id)[0];
+                          return <option key={p.id} value={p.id}>{j ? j.name : 'Seat'}{who ? ` — ${who.name}` : ' — vacant'}</option>;
+                        })}
+                    </select>
+                  </div>
+
+                  <div className="category-header" style={{ marginBottom: 8 }}>Derived review mesh</div>
+                  {[['Manager', mesh.manager, 'supervisor'], ['Peers', mesh.peers, 'team-member'], ['Reports', mesh.reports, 'subordinate']].map(([label, people, rel]) => (
+                    <div key={label} style={{ marginBottom: 10 }}>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm" style={{ fontWeight: 600 }}>{label}</span>
+                        <span className="text-xs text-muted">
+                          {people.length} · floor {floorFor(rel) || 'none'}
+                        </span>
+                      </div>
+                      <div className="text-sm text-muted">
+                        {people.length ? people.map(p => p.name).join(', ') : '—'}
+                      </div>
+                      {floorFor(rel) > 0 && people.length > 0 && people.length < floorFor(rel) && (
+                        <div className="text-xs" style={{ color: '#b45309', marginTop: 2 }}>
+                          Below the anonymity floor — these responses will be withheld from the company view.
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  <button className="btn btn-secondary btn-sm mt-4" onClick={() => removePosition(sel.id)}>Delete seat</button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {showAdd && (
+            <div className="modal-overlay" onClick={() => setShowAdd(null)}>
+              <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+                <h3 className="modal-title">Add a seat</h3>
+                <div className="mb-4">
+                  <label className="label">Job</label>
+                  <select className="input" value={form.jobId} onChange={e => setForm({ ...form, jobId: e.target.value })}>
+                    <option value="">Select a job...</option>
+                    {(data.roles || []).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  </select>
+                </div>
+                <div className="mb-6">
+                  <label className="label">Note (optional)</label>
+                  <input className="input" value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} placeholder="e.g. Math team" />
+                </div>
+                <div className="flex gap-3">
+                  <button className="btn btn-secondary" onClick={() => setShowAdd(null)}>Cancel</button>
+                  <button className="btn btn-primary" style={{ flex: 1 }} disabled={!form.jobId} onClick={addPosition}>Add seat</button>
                 </div>
               </div>
             </div>
@@ -1671,15 +2088,21 @@
     };
 
     // ~28 samples of the trailing 12-month mean across the record's span.
+    // The window is NOT defined until the record is itself 12 months old: before
+    // that it is the mean of one or two reviews, which is noise drawn as a trend.
+    // Those samples are skipped, so a young record shows no sparkline rather than
+    // a fictional spike.
     const trailingSeries = (reviews, key) => {
       if (reviews.length < 2) return [];
       const t0 = new Date(reviews[0].createdAt).getTime();
       const t1 = new Date(reviews[reviews.length - 1].createdAt).getTime();
       if (t1 <= t0) return [];
+      const ready = t0 + MS_YEAR;
       const out = [];
       let carry = null;
       for (let i = 0; i <= 28; i++) {
         const at = t0 + ((t1 - t0) * i) / 28;
+        if (at < ready) continue;
         const v = windowMean(reviews, key, at, 12);
         if (v != null) carry = v;
         if (carry != null) out.push(carry);
@@ -1720,8 +2143,11 @@
       const now = new Date(reviews[reviews.length - 1].createdAt).getTime();
       const rows = performanceQuestions.map(q => {
         const all = reviews.map(r => r.performance?.[q.id]).filter(Boolean);
-        const recent = windowMean(reviews, q.id, now, 12);
-        const prior = windowMean(reviews, q.id, now - MS_YEAR, 12);
+        // 24 months against the 24 before them. A 12-vs-12 comparison at any
+        // realistic review rate is dominated by sampling noise and regularly
+        // contradicts the sparkline beside it.
+        const recent = windowMean(reviews, q.id, now, 24);
+        const prior = windowMean(reviews, q.id, now - 2 * MS_YEAR, 24);
         return {
           q,
           value: mean(all) || 0,
@@ -1740,7 +2166,7 @@
           {rows.map((row, i) => {
             const pct = ((row.value - 1) / 4) * 100;
             const d = row.delta;
-            const flat = d == null || Math.abs(d) < 0.05;
+            const flat = d == null || Math.abs(d) < 0.15;
             const dColor = flat ? 'var(--slate-400)' : d > 0 ? ACCENT : '#b42318';
             const dText = d == null ? '—' : flat ? 'steady' : `${d > 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(2)}`;
             return (
@@ -1758,7 +2184,7 @@
                   {locked ? '—' : row.value.toFixed(2)}
                 </div>
                 {locked ? <div /> : <Sparkline series={row.series} />}
-                <div title="trailing 12 months vs the 12 months before"
+                <div title="trailing 24 months vs the 24 months before"
                   style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11.5, textAlign: 'right', color: locked ? 'var(--slate-300)' : dColor }}>
                   {locked ? '' : dText}
                 </div>
@@ -1934,10 +2360,274 @@
 
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // CAREER TIMELINE ACROSS EMPLOYERS
+    //
+    // The identity of a record is the PATH, not an average. A path does not
+    // converge — every position adds a segment — and no two people share a
+    // sequence of employers, titles and durations. This is the 2023 comp's
+    // digital-resume band, and it replaces the generated helix mark.
+    //
+    // Employer tenancy stops at the employment. The employer attests the position
+    // it provisioned; positions the person brought with them are drawn PROVISIONAL
+    // until there is a confirmation graph to verify them. Nothing here lets an
+    // employer edit or remove a position it did not create.
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Sequential ramp: one hue, light → dark, validated (monotone lightness,
+    // ΔL ≥ 0.06 between steps, light end ≥ 2:1 on the card). Darker = better
+    // reviewed. The score is printed in the table as well, so colour never
+    // carries a value on its own.
+    const SCORE_RAMP = ['#33bfae', '#17a394', '#0f877c', '#0a6b64', '#08514d'];
+    const rampOf = (score) => score == null
+      ? 'var(--slate-300)'
+      : SCORE_RAMP[Math.max(0, Math.min(4, Math.floor((score - 1) / 0.8)))];
+
+    const ymToTime = (ym, endOfMonth) => {
+      if (!ym) return null;
+      const parts = String(ym).split('-').map(Number);
+      if (!parts[0]) return null;
+      return endOfMonth ? Date.UTC(parts[0], parts[1], 0) : Date.UTC(parts[0], (parts[1] || 1) - 1, 1);
+    };
+    const monthsBetween = (a, b) => Math.max(1, Math.round((b - a) / (MS_YEAR / 12)));
+    const durationText = (months) => {
+      const y = Math.floor(months / 12), mo = months % 12;
+      if (y && mo) return `${y}y ${mo}m`;
+      if (y) return `${y}y`;
+      return `${mo}m`;
+    };
+    const ymLabel = (ym) => {
+      if (!ym) return 'present';
+      const t = ymToTime(ym, false);
+      return new Date(t).toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+    };
+
+    // Stored positions, plus the one this employer provisions.
+    const employmentsOf = (data, user) => {
+      if (!user) return [];
+      const role = data.roles.find(r => r.id === user.roleId);
+      const mine = (data.employments || []).filter(e => e.personId === user.id);
+      const here = {
+        id: 'here',
+        personId: user.id,
+        company: data.organization?.name || 'This company',
+        title: role?.name || 'No role assigned',
+        startDate: (user.createdAt || new Date().toISOString()).slice(0, 7),
+        endDate: null,
+        source: 'employer',
+      };
+      return [...mine, here].sort((a, b) => String(a.startDate || '').localeCompare(String(b.startDate || '')));
+    };
+
+    // Reviews collected in this app belong to the employment this employer
+    // provisioned. Everything else carries a count the person brought with them.
+    const employmentStats = (emp, reviews) => {
+      if (emp.source === 'employer') {
+        const vals = [];
+        reviews.forEach(r => performanceQuestions.forEach(q => {
+          if (r.performance && r.performance[q.id]) vals.push(r.performance[q.id]);
+        }));
+        return { count: reviews.length, score: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null };
+      }
+      const n = Number(emp.carriedReviews) || 0;
+      const sc = emp.carriedScore ? Number(emp.carriedScore) : null;
+      return { count: n, score: n ? sc : null };
+    };
+
+    const CareerBand = ({ employments, reviews, onAdd, onRemove }) => {
+      const now = Date.now();
+      const rows = employments.map(e => {
+        const s = ymToTime(e.startDate, false) || now;
+        const raw = e.endDate ? ymToTime(e.endDate, true) : now;
+        return { e, s, en: Math.max(raw, s + MS_YEAR / 12), stats: employmentStats(e, reviews) };
+      });
+      const t0 = Math.min.apply(null, rows.map(r => r.s));
+      const t1 = Math.max.apply(null, rows.map(r => r.en));
+      const span = Math.max(MS_YEAR / 4, t1 - t0);
+      const pct = (t) => ((t - t0) / span) * 100;
+
+      const yFirst = new Date(t0).getUTCFullYear(), yLast = new Date(t1).getUTCFullYear();
+      const allYears = [];
+      for (let y = yFirst; y <= yLast; y++) allYears.push(y);
+      const step = Math.max(1, Math.ceil(allYears.length / 8));
+      const ticks = allYears.filter((y, i) => i % step === 0);
+
+      const totalMonths = rows.reduce((a, r) => a + monthsBetween(r.s, r.en), 0);
+      const carried = rows.filter(r => r.e.source !== 'employer').length;
+
+      return (
+        <div style={{ padding: '18px 24px 20px', borderBottom: '1px solid var(--slate-100)' }}>
+          <div className="flex justify-between items-center" style={{ marginBottom: 14 }}>
+            <div>
+              <div className="category-header" style={{ marginBottom: 2 }}>Career</div>
+              <div className="text-sm text-muted">
+                {rows.length} position{rows.length === 1 ? '' : 's'} · {durationText(totalMonths)} on record
+                {carried > 0 ? ` · ${carried} carried from a previous employer` : ''}
+              </div>
+            </div>
+            <button className="btn btn-secondary btn-sm" onClick={onAdd}>+ Add position</button>
+          </div>
+
+          {/* one lane per position, one shared time axis — overlapping and
+              interrupted careers both draw correctly */}
+          <div style={{ position: 'relative' }}>
+            {ticks.map(y => (
+              <div key={'g' + y} style={{
+                position: 'absolute', top: 0, bottom: 0,
+                left: `${pct(Date.UTC(y, 0, 1))}%`, width: 1,
+                background: 'var(--slate-100)',
+              }} />
+            ))}
+            <div style={{ position: 'relative', display: 'grid', gap: 6 }}>
+              {rows.map(row => {
+                const left = pct(row.s), width = Math.max(2.5, pct(row.en) - pct(row.s));
+                const provisional = row.e.source !== 'employer';
+                const fill = rampOf(row.stats.score);
+                return (
+                  <div key={row.e.id} style={{ position: 'relative', height: 30 }}>
+                    <div
+                      title={`${row.e.title} · ${row.e.company} · ${ymLabel(row.e.startDate)} – ${ymLabel(row.e.endDate)}`}
+                      style={{
+                        position: 'absolute', left: `${left}%`, width: `${width}%`, top: 0, height: 30,
+                        borderRadius: 3, overflow: 'hidden', display: 'flex', alignItems: 'center',
+                        padding: '0 9px', gap: 8, whiteSpace: 'nowrap',
+                        // Provisional is marked by a hatched strip along the foot of
+                        // the bar, not a hatch across the whole fill — a hatch behind
+                        // the label makes the label unreadable.
+                        background: fill,
+                        border: provisional ? '1px dashed rgba(255,255,255,.9)' : '1px solid transparent',
+                        color: '#fff', fontSize: 12.5, fontWeight: 600,
+                        textShadow: '0 1px 1px rgba(0,0,0,.28)',
+                      }}>
+                      {provisional && (
+                        <span aria-hidden="true" style={{
+                          position: 'absolute', left: 0, right: 0, bottom: 0, height: 6,
+                          background: 'repeating-linear-gradient(135deg, rgba(255,255,255,.75), rgba(255,255,255,.75) 3px, rgba(255,255,255,0) 3px, rgba(255,255,255,0) 7px)',
+                        }} />
+                      )}
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {row.e.title} <span style={{ opacity: .82, fontWeight: 500 }}>· {row.e.company}</span>
+                      </span>
+                      {row.stats.score != null && (
+                        <span style={{ marginLeft: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontVariantNumeric: 'tabular-nums' }}>
+                          {row.stats.score.toFixed(1)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ position: 'relative', height: 18, marginTop: 6 }}>
+            {ticks.map(y => (
+              <span key={'t' + y} style={{
+                position: 'absolute', left: `${Math.min(99, Math.max(0, pct(Date.UTC(y, 0, 1))))}%`,
+                transform: pct(Date.UTC(y, 0, 1)) < 4 ? 'none'
+                  : pct(Date.UTC(y, 0, 1)) > 96 ? 'translateX(-100%)' : 'translateX(-50%)',
+                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11, color: 'var(--slate-400)',
+              }}>{y}</span>
+            ))}
+          </div>
+
+          <div style={{ overflowX: 'auto', marginTop: 12 }}>
+            <table className="table" style={{ fontSize: 13 }}>
+              <thead>
+                <tr><th>Position</th><th>Company</th><th>Period</th><th>Duration</th><th>Reviews</th><th>Score</th><th>Standing</th></tr>
+              </thead>
+              <tbody>
+                {rows.slice().reverse().map(row => (
+                  <tr key={row.e.id}>
+                    <td style={{ fontWeight: 500 }}>{row.e.title}</td>
+                    <td>{row.e.company}</td>
+                    <td className="text-muted" style={{ whiteSpace: 'nowrap' }}>{ymLabel(row.e.startDate)} – {ymLabel(row.e.endDate)}</td>
+                    <td className="text-muted">{durationText(monthsBetween(row.s, row.en))}</td>
+                    <td style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>{row.stats.count || '—'}</td>
+                    <td style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
+                      {row.stats.score != null ? row.stats.score.toFixed(2) : '—'}
+                    </td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      {row.e.source === 'employer'
+                        ? <span className="badge badge-green">Attested</span>
+                        : <span className="flex items-center gap-2">
+                            <span className="badge badge-yellow">Self-declared</span>
+                            <button className="btn btn-secondary btn-xs" onClick={() => onRemove(row.e.id)}>Remove</button>
+                          </span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-muted" style={{ marginTop: 10 }}>
+            Self-declared positions stay provisional. Under the trust model they are confirmed by a
+            work email at a verified company domain, by the employer, or by confirmed colleagues whose
+            employment overlapped yours — none of which the employer you are with now can withhold.
+          </p>
+        </div>
+      );
+    };
+
+    const PositionModal = ({ onSave, onClose }) => {
+      const [form, setForm] = useState({ company: '', title: '', startDate: '', endDate: '', carriedReviews: '', carriedScore: '' });
+      const valid = form.company.trim() && form.title.trim() && /^\d{4}-\d{2}$/.test(form.startDate);
+      return (
+        <div className="modal-overlay" onClick={onClose}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3 className="modal-title">Add a previous position</h3>
+            <p className="text-muted text-sm mb-4">
+              This position belongs to you, not to the company you are with now. It stays on your
+              record when you leave.
+            </p>
+            <div className="mb-4"><label className="label">Company</label>
+              <input className="input" value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} placeholder="e.g. Bluberi Gaming" /></div>
+            <div className="mb-4"><label className="label">Job title</label>
+              <input className="input" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="e.g. Senior Game Designer" /></div>
+            <div className="grid-2 mb-4">
+              <div><label className="label">From</label>
+                <input className="input" type="month" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} /></div>
+              <div><label className="label">To</label>
+                <input className="input" type="month" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} /></div>
+            </div>
+            <div className="grid-2 mb-6">
+              <div><label className="label">Reviews carried</label>
+                <input className="input" type="number" min="0" value={form.carriedReviews} onChange={e => setForm({ ...form, carriedReviews: e.target.value })} placeholder="0" /></div>
+              <div><label className="label">Average score</label>
+                <input className="input" type="number" min="1" max="5" step="0.1" value={form.carriedScore} onChange={e => setForm({ ...form, carriedScore: e.target.value })} placeholder="—" /></div>
+            </div>
+            <div className="flex gap-3">
+              <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+              <button className="btn btn-primary" style={{ flex: 1 }} disabled={!valid} onClick={() => onSave(form)}>Add position</button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // MY PROFILE
     // ═══════════════════════════════════════════════════════════════════════════
     
-    const MyProfile = ({ data, currentUser }) => {
+    const MyProfile = ({ data, setData, currentUser }) => {
+      const [showPosition, setShowPosition] = useState(false);
+      const employments = employmentsOf(data, currentUser);
+
+      const addPosition = (form) => {
+        const emp = {
+          id: generateId(), personId: currentUser.id, source: 'self',
+          company: form.company.trim(), title: form.title.trim(),
+          startDate: form.startDate, endDate: form.endDate || null,
+          carriedReviews: Number(form.carriedReviews) || 0,
+          carriedScore: form.carriedScore ? Number(form.carriedScore) : null,
+        };
+        const updated = { ...data, employments: [...(data.employments || []), emp] };
+        setData(updated); saveData(updated); setShowPosition(false);
+      };
+      const removePosition = (id) => {
+        const updated = { ...data, employments: (data.employments || []).filter(e => e.id !== id) };
+        setData(updated); saveData(updated);
+      };
+
       const myReviews = data.reviews.filter(r => r.subjectId === currentUser?.id);
       const sortedReviews = byDate(myReviews);
       const reviewCount = myReviews.length;
@@ -1970,7 +2660,6 @@
           
           <div className="card" style={{ marginBottom: 24, overflow: 'hidden' }}>
             <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap', padding: '20px 24px', borderBottom: '1px solid var(--slate-100)' }}>
-              <HelixMark reviews={sortedReviews} size={56} />
               <div style={{ flex: 1, minWidth: 190 }}>
                 <div style={{ fontSize: 19, fontWeight: 700, color: 'var(--slate-900)' }}>{currentUser?.name}</div>
                 <div style={{ fontSize: 14, color: 'var(--slate-500)' }}>{role?.name || 'No role assigned'}</div>
@@ -1999,6 +2688,13 @@
               </div>
             </div>
 
+            <CareerBand
+              employments={employments}
+              reviews={sortedReviews}
+              onAdd={() => setShowPosition(true)}
+              onRemove={removePosition}
+            />
+
             <DimensionRows reviews={sortedReviews} />
 
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 1.35fr) minmax(200px, 1fr)', borderTop: '1px solid var(--slate-100)' }}>
@@ -2022,6 +2718,8 @@
           </div>
           
           
+          {showPosition && <PositionModal onSave={addPosition} onClose={() => setShowPosition(false)} />}
+
           <div className="card" style={{ padding: 24 }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Skills</h2>
             {Object.keys(skillReviews).length === 0 ? (
@@ -2041,6 +2739,128 @@
               </div>
             )}
           </div>
+        </div>
+      );
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // COMPANY VIEW — the employer's cut of a person, through the suppression
+    // engine. Deliberately plain: this exists to prove the floors behave, not to
+    // be the finished histogram surface (that is the next piece of work).
+    //
+    // Note what is NOT here: no free text. Scores are for the company, words are
+    // for the person.
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    const CompanyView = ({ data, subjectId }) => {
+      const [groupBy, setGroupBy] = useState('relationship');
+      const [dimension, setDimension] = useState('');
+      const [frequency, setFrequency] = useState('');
+
+      const filters = {};
+      if (frequency) filters.frequency = frequency;
+
+      const res = slice(data, subjectId, {
+        groupBy,
+        dimension: dimension || null,
+        filters,
+      });
+
+      const Bar = ({ hist, n }) => {
+        const max = Math.max(1, ...hist);
+        return (
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 42 }}>
+            {hist.map((c, i) => (
+              <div key={i} style={{ flex: 1, textAlign: 'center' }} title={`${i + 1}: ${c}`}>
+                <div style={{
+                  height: Math.max(2, (c / max) * 34), background: 'var(--teal-600)',
+                  borderRadius: '2px 2px 0 0', opacity: c ? 0.9 : 0.15,
+                }} />
+                <div style={{ fontSize: 9, color: 'var(--slate-400)', marginTop: 2 }}>{i + 1}</div>
+              </div>
+            ))}
+          </div>
+        );
+      };
+
+      const Row = ({ c }) => (
+        <div style={{
+          padding: '12px 14px', border: '1px solid var(--slate-200)', borderRadius: 8,
+          background: c.released ? '#fff' : 'var(--slate-50)',
+        }}>
+          <div className="flex justify-between items-center mb-2">
+            <span style={{ fontWeight: 600, fontSize: 13.5 }}>{c.label}</span>
+            <span className="text-xs text-muted" style={{ fontFamily: 'ui-monospace, monospace' }}>n={c.n}</span>
+          </div>
+          {c.released ? (
+            <div>
+              <Bar hist={c.histogram} n={c.n} />
+              <div className="flex justify-between items-center mt-2">
+                <span className="text-xs text-muted">mean</span>
+                <span style={{ fontFamily: 'ui-monospace, monospace', fontWeight: 600 }}>
+                  {c.mean != null ? c.mean.toFixed(2) : '—'}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div style={{ padding: '14px 0', textAlign: 'center' }}>
+              <div style={{ fontSize: 20, opacity: .5 }}>🔒</div>
+              <div className="text-xs" style={{ color: '#b45309', marginTop: 4 }}>{c.reason}</div>
+            </div>
+          )}
+        </div>
+      );
+
+      return (
+        <div className="card" style={{ padding: 24 }}>
+          <div className="flex justify-between items-center mb-2 flex-wrap gap-3">
+            <h2 style={{ fontSize: 16, fontWeight: 700 }}>Company view</h2>
+            <div className="flex gap-2 flex-wrap">
+              <select className="input" style={{ width: 'auto' }} value={groupBy} onChange={e => setGroupBy(e.target.value)}>
+                <option value="relationship">By reviewer role</option>
+                <option value="exposure">By exposure</option>
+              </select>
+              <select className="input" style={{ width: 'auto' }} value={dimension} onChange={e => setDimension(e.target.value)}>
+                <option value="">All dimensions</option>
+                {performanceQuestions.map(q => <option key={q.id} value={q.id}>{q.label}</option>)}
+              </select>
+              <select className="input" style={{ width: 'auto' }} value={frequency} onChange={e => setFrequency(e.target.value)}>
+                <option value="">Any contact</option>
+                {['Daily', 'Weekly', 'Occasionally', 'One-time project'].map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <p className="text-sm text-muted mb-4">
+            Distribution, not average — two people averaging 3.6 can be a steady 3s-and-4s
+            record or a half-5s-half-2s one, and those are different situations.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 16 }}>
+            {res.cohorts.length === 0
+              ? <div className="text-muted text-sm">No reviews match this cut.</div>
+              : res.cohorts.map(c => <Row key={c.key} c={c} />)}
+          </div>
+
+          <div style={{ borderTop: '1px solid var(--slate-200)', paddingTop: 14 }}>
+            <div className="flex justify-between items-center">
+              <span style={{ fontWeight: 600, fontSize: 13.5 }}>All reviewers</span>
+              <span className="text-xs text-muted" style={{ fontFamily: 'ui-monospace, monospace' }}>n={res.total.n}</span>
+            </div>
+            {res.total.released
+              ? <div style={{ marginTop: 8 }}><Bar hist={res.total.histogram} n={res.total.n} /></div>
+              : <div className="text-xs" style={{ color: '#b45309', marginTop: 6 }}>{res.total.reason}</div>}
+          </div>
+
+          {res.anyWithheld && (
+            <p className="text-xs text-muted" style={{ marginTop: 14, lineHeight: 1.6 }}>
+              Withheld groups are listed rather than hidden — a missing row would let the
+              total be used to work out what is in it. A manager reviewing their own report
+              is attributed by design and carries no floor; upward review carries the
+              highest one. GlassAnt cannot make a review anonymous from someone who chose
+              the panel — only unattributable within it.
+            </p>
+          )}
         </div>
       );
     };
@@ -2069,6 +2889,8 @@
         return { label: 'Building', class: 'badge-gray' };
       };
       const tier = getTier(reviewCount);
+      // Same information as the total histogram, so it obeys the same decision.
+      const gate = slice(data, employee.id, { groupBy: 'relationship' });
       
       return (
         <div className="container" style={{ maxWidth: 800 }}>
@@ -2089,8 +2911,8 @@
             </div>
           </div>
           
-          {reviewCount >= 10 && (
-            <div className="card" style={{ padding: 24 }}>
+          {reviewCount >= 10 && gate.total.released && (
+            <div className="card" style={{ padding: 24, marginBottom: 24 }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Performance</h2>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16 }}>
                 {performanceQuestions.map(q => (
@@ -2104,12 +2926,14 @@
           )}
           
           {reviewCount < 10 && (
-            <div className="card" style={{ padding: 32, textAlign: 'center' }}>
+            <div className="card" style={{ padding: 32, textAlign: 'center', marginBottom: 24 }}>
               <p className="text-muted">Scores visible after 10 reviews</p>
               <div className="progress-bar" style={{ width: 200, margin: '16px auto 0' }}><div className="progress-fill" style={{ width: `${reviewCount * 10}%` }} /></div>
               <p className="text-sm text-muted mt-2">{reviewCount} of 10</p>
             </div>
           )}
+
+          <CompanyView data={data} subjectId={employee.id} />
         </div>
       );
     };
@@ -2196,13 +3020,14 @@
           {view === 'add-employee' && <AddEmployee data={data} setData={setData} setView={setView} />}
           {view === 'employee-detail' && selectedEmployee && <EmployeeDetail data={data} employee={selectedEmployee} setView={setView} />}
           {view === 'roles' && <Roles data={data} setData={setData} />}
+          {view === 'orgchart' && <OrgChart data={data} setData={setData} />}
           {view === 'skills' && <SkillsManagement data={data} setData={setData} />}
           {view === 'projects' && <Projects data={data} setData={setData} />}
           {view === 'requests' && <ReviewRequests data={data} setData={setData} setView={setView} setSelectedRequest={setSelectedRequest} />}
           {view === 'request-review' && <RequestReview data={data} setData={setData} setView={setView} currentUser={currentUser} />}
           {view === 'submit-review' && selectedRequest && <SubmitReview data={data} setData={setData} setView={setView} request={selectedRequest} />}
           {view === 'employer-settings' && <EmployerSettings data={data} setData={setData} />}
-          {view === 'my-profile' && <MyProfile data={data} currentUser={currentUser} />}
+          {view === 'my-profile' && <MyProfile data={data} setData={setData} currentUser={currentUser} />}
           <DataControls onReset={reset} onImport={setData} />
         </div>
       );
